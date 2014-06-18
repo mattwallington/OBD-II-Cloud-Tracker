@@ -22,11 +22,6 @@
             </intent-filter>
         </activity>
 
-        <service
-            android:name=".CargoCollector"
-            android:label="Cargo Collector" >
-        </service>
-
     </application>
 
 

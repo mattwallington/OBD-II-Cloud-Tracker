@@ -1,10 +1,19 @@
 package cargo.cargocollector;
 
 import android.app.Activity;
+import android.bluetooth.BluetoothAdapter;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
+import android.location.Criteria;
+import android.location.Location;
+import android.location.LocationListener;
+import android.location.LocationManager;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.Menu;
@@ -12,69 +21,50 @@ import android.view.MenuItem;
 import android.widget.TextView;
 import android.support.v4.content.LocalBroadcastManager;
 
+import java.util.UUID;
+
 import cargo.cargocollector.R;
 
-public class StartActivity extends Activity {
+public class StartActivity extends Activity implements LocationListener, SensorEventListener {
 
     private TextView tv;
+
+    /*  Location */
+    private LocationManager locationManager;
+    private String provider;
+    private static final int MIN_DISTANCE = 1;
+    private static final int MIN_TIME = 1000;
+
+    /* Accelerometer */
+    private SensorManager sensorManager;
+    private Sensor accelerometer;
+    private Float accel_x, accel_y, accel_z;
+
+    /* Bluetooth / OBD2 */
+    private BluetoothAdapter btadapter;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_start);
 
-        tv = (TextView) findViewById(R.id.service_status);
-        tv.setText("Service started\n");
+        //Activate location tracking.
+        activateLocation();
 
-        LocalBroadcastManager.getInstance(this).registerReceiver(
-            new BroadcastReceiver() {
-                @Override
-                public void onReceive(Context context, Intent intent) {
-                    double latitude = intent.getDoubleExtra(CargoCollector.EXTRA_LATITUDE, 0);
-                    double longitude = intent.getDoubleExtra(CargoCollector.EXTRA_LONGITUDE, 0);
-                    //Deal with new point.
-                    receiveLocationData(latitude, longitude);
-                }
-            }, new IntentFilter(CargoCollector.ACTION_LOCATION_BROADCAST)
-        );
-
-        LocalBroadcastManager.getInstance(this).registerReceiver(
-                new BroadcastReceiver() {
-                    @Override
-                    public void onReceive(Context context, Intent intent) {
-                        float accelerometer_x = intent.getFloatExtra(CargoCollector.EXTRA_ACCELEROMETER_X, 0);
-                        float accelerometer_y = intent.getFloatExtra(CargoCollector.EXTRA_ACCELEROMETER_Y, 0);
-                        float accelerometer_z = intent.getFloatExtra(CargoCollector.EXTRA_ACCELEROMETER_Z, 0);
-                        //Deal with new point.
-                        receiveAccelerometerData(accelerometer_x, accelerometer_y, accelerometer_z);
-                    }
-                }, new IntentFilter(CargoCollector.ACTION_ACCELEROMETER_BROADCAST)
-        );
-
-    }
-
-    private void receiveLocationData(Double latitude, Double longitude) {
-        tv.append("Lat: " + Double.toString(latitude) + ", Long: " + Double.toString(longitude) + "\n");
-    }
-
-    private void receiveAccelerometerData(Float x, Float y, Float z) {
-        String sensorData = "Accel_x: " + Float.toString(x) + ", Accel y: " + Float.toString(y) + ", Accel z: " + Float.toString(z) + "\n";
-        //tv.append(sensorData);
-        //Log.d("Sensor", sensorData);
+        //Activate Accelerometer
+        activateAccelerometer();
     }
 
     @Override
     protected void onResume() {
         Log.d("Service", "OnResume()");
         super.onResume();
-        startService(new Intent(this, CargoCollector.class));
     }
 
     @Override
     protected void onPause() {
         Log.d("Service", "OnPause()");
         super.onPause();
-        stopService(new Intent(this, CargoCollector.class));
     }
 
 
@@ -95,5 +85,101 @@ public class StartActivity extends Activity {
             return true;
         }
         return super.onOptionsItemSelected(item);
+    }
+
+    /*
+     *   Location services
+     */
+    private void activateLocation() {
+        locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+
+        //Find out which provider is best to use.  (GPS or network).
+        setBestProvider();
+
+        //Get initial location.  May be invalid.
+        Location location = locationManager.getLastKnownLocation(provider);
+
+        //Initialize location fields.
+        if (location != null) {
+            onLocationChanged(location);
+        } else {
+            Log.d("Location", "location is null");
+        }
+
+        locationManager.requestLocationUpdates(provider, MIN_TIME, MIN_DISTANCE, this);
+    }
+
+    @Override
+    public void onLocationChanged(Location location) {
+        //deal with location.
+        String loc = Double.toString(location.getLatitude()) + ", " + Double.toString(location.getLongitude());
+        tv.append(loc + "\n");
+    }
+
+    @Override
+    public void onStatusChanged(String provider, int status, Bundle extras) {
+        //Not sure what status this is talking about.
+
+    }
+
+    @Override
+    public void onProviderEnabled(String provider) {
+        setBestProvider();
+    }
+
+    @Override
+    public void onProviderDisabled(String provider) {
+        setBestProvider();
+    }
+
+    private void setBestProvider() {
+        Criteria criteria = new Criteria();
+        provider = locationManager.getBestProvider(criteria, true);
+        Log.d("Location", "Location Provider: " + provider);
+    }
+
+    /*
+     *   Accelerometer services
+     */
+    private void activateAccelerometer() {
+        sensorManager = (SensorManager)getSystemService(SENSOR_SERVICE);
+        accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+        sensorManager.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_NORMAL);
+
+
+    }
+
+    public void onSensorChanged(SensorEvent event) {
+        if (event.sensor.getType() != Sensor.TYPE_ACCELEROMETER)
+            return;
+        accel_x = event.values[0];
+        accel_y = event.values[1];
+        accel_z = event.values[2];
+
+        //TODO: Do something here with the accelerometer data.
+
+    }
+
+    public void onAccuracyChanged(Sensor sensor, int accuracy) {
+
+    }
+
+    /*
+     *  Bluetooth / OBD2
+     */
+    private void getOBD() {
+        //Get bluetooth adapter
+        btadapter = BluetoothAdapter.getDefaultAdapter();
+        if (btadapter == null) {
+            //Couldn't get adapter.
+        }
+
+        if (!btadapter.isEnabled()) {
+            Log.d("OBD", "Bluetooth is not enabled");
+            return;
+        }
+
+        final UUID SERIAL_UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
+
     }
 }
