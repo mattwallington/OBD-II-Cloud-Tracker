@@ -3,7 +3,7 @@
 
     <string name="app_name">Cargo Collector</string>
     <string name="title_activity_start">StartActivity</string>
-    <string name="service_status">Service status</string>
+    <string name="service_status"></string>
     <string name="action_settings">Settings</string>
     <string name="hello_world">Hello world!</string>
 
