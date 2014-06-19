@@ -15,6 +15,7 @@ import android.location.Criteria;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.Menu;
@@ -22,9 +23,12 @@ import android.view.MenuItem;
 import android.widget.TextView;
 import android.support.v4.content.LocalBroadcastManager;
 
+import java.io.IOException;
 import java.util.Iterator;
 import java.util.Set;
 import java.util.UUID;
+
+import java.nio.charset.Charset;
 
 import cargo.cargocollector.R;
 
@@ -47,6 +51,7 @@ public class CollectorMain extends Activity implements LocationListener, SensorE
     private BluetoothAdapter btadapter;
     private BluetoothSocket btsocket;
     private static final UUID MY_UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
+    BluetoothThread btinst;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -200,9 +205,6 @@ public class CollectorMain extends Activity implements LocationListener, SensorE
             Log.d("OBD", "Bluetooth is not enabled");
             return;
         }
-
-        //final UUID SERIAL_UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
-
         /*
         Set<BluetoothDevice> pairedDevices;
         pairedDevices = btadapter.getBondedDevices();
@@ -219,7 +221,7 @@ public class CollectorMain extends Activity implements LocationListener, SensorE
 
         try {
             btsocket = device.createRfcommSocketToServiceRecord(MY_UUID);
-            btsocket.connect();
+            //btsocket.connect();
         }
         catch (Exception e) {
             Log.d("Exception", e.getMessage());
@@ -228,5 +230,70 @@ public class CollectorMain extends Activity implements LocationListener, SensorE
         // Read this site:  http://www.codota.com/android/scenarios/51891a46da0a6c5c8ff8531f/android.bluetooth.BluetoothSocket?tag=out_2013_05_05_07_19_34
 
         // You need to implement an inputstream and outputstream.
+        BluetoothThread.Listener listener = new BluetoothThread.Listener() {
+            public void onConnected() {
+
+                //Try sending a command.
+
+                try {
+                    //Disable echo back.
+                    //sendCmd("ATE0\r");
+                    //sendCmd("010D\r");
+                    /*
+                    sendCmd("ATI");
+                    Thread.sleep(1000);
+                    sendCmd("ATL1");
+                    Thread.sleep(1000);
+                    sendCmd("ATH1");
+                    Thread.sleep(1000);
+                    sendCmd("ATS1");
+                    Thread.sleep(1000);
+                    sendCmd("ATAL");
+                    Thread.sleep(1000);
+                    sendCmd("ATSP0");
+                    Thread.sleep(1000);
+                    */
+                    sendCmd("010D\r");
+                } catch (Exception e) {
+                    Log.d("OBD", e.getMessage());
+                }
+
+            }
+            public void onReceived(byte[] buffer, int length) {
+                Log.d("OBD", "onReceived()");
+                //Log.d("Data", "Data: "+buffer.toString() + " Length: "+Integer.toString(length));
+                try {
+                    String data = new String(buffer, "US-ASCII");
+                    data = data.trim();
+                    //int speed = Integer.parseInt(data, 16);
+                    Log.d("Received", data);
+                    //Log.d("Converted", Integer.toString(speed));
+
+                } catch (Exception e) {
+                    Log.d("Exception", e.getMessage());
+                }
+            }
+            public void onDisconnected() {
+                Log.d("OBD", "onDisconnected()");
+            }
+            public void onError(IOException e) {
+                Log.d("OBD", "Error: " + e.getMessage());
+            }
+        };
+
+        btinst = BluetoothThread.newInstance(btsocket, listener);
+
     }
+
+    private void sendCmd(String command) {
+        try {
+            Log.d("Sent", command);
+            btinst.write(command.getBytes(Charset.forName("US-ASCII")));
+        } catch (IOException e) {
+            Log.d("OBD", "IO Exception: " + e.getMessage());
+        }
+
+
+    }
+
 }
