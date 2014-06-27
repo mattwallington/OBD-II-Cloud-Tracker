@@ -36,15 +36,39 @@ public class CargoCollector extends Service {
     }
 
     private void enableLocMan() {
+
         locMan = (LocationManager) getSystemService(LOCATION_SERVICE);
 
         Criteria criteria = new Criteria();
-        provider = locMan.getBestProvider(criteria, false);
+        Log.d("Providers", locMan.getAllProviders().toString());
+        provider = locMan.getBestProvider(criteria, true);
+        if (provider == null) {
+            Log.d("Location", "Error with provider");
+            return;
+        }
+        Log.d("Location", provider);
+        try {
+            if (locMan.getLastKnownLocation(provider) != null) {
+                Log.d("Location", "Not null");
+            } else {
+                Log.d("Location", "Is Null");
+            }
+        } catch (Exception e) {
+            Log.d("Location", e.toString());
+        }
 
+        /*
         Location location = locMan.getLastKnownLocation(provider);
+        if (location == null) {
+            Log.d("Location", "Location is null");
+            return;
+        }
 
-        String loc = Double.toString(location.getLatitude()) + ", " + Double.toString(location.getLongitude());
-        Log.d("Location", loc);
+        */
+
+        //Log.d("Location", Double.toString(location.getLatitude()));
+        //String loc = Double.toString(location.getLatitude()) + ", " + Double.toString(location.getLongitude());
+      //  Log.d("Location", loc);
 
     }
 
