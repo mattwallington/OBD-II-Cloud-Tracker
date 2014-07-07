@@ -7,6 +7,8 @@ import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.charset.Charset;
+import java.util.ArrayList;
 
 /**
  * Created by matt on 6/18/14.
@@ -14,6 +16,9 @@ import java.io.OutputStream;
 public class BluetoothThread extends Thread {
 
     private Listener listener;
+
+    private boolean isBusy = false;
+    private ArrayList<String> cmdQueue;
 
     public static interface Listener {
         void onConnected();
@@ -114,6 +119,24 @@ public class BluetoothThread extends Thread {
 
         inputStream = null;
         outputStream = null;
+    }
+
+    public void queueCommand(String command) {
+        cmdQueue.add(command);
+    }
+
+    private void execCommands() {
+        //Set up thread here and have it look for new entries in cmdQueue.  Verify that command is finished.
+
+
+
+
+        try {
+            Log.d("Sent", command);
+            this.write(command.getBytes(Charset.forName("US-ASCII")));
+        } catch (IOException e) {
+            Log.d("OBD", "IO Exception: " + e.getMessage());
+        }
     }
 
 }
