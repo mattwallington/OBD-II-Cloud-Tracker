@@ -8,7 +8,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.Charset;
-import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.Queue;
 
 /**
  * Created by matt on 6/18/14.
@@ -18,7 +19,7 @@ public class BluetoothThread extends Thread {
     private Listener listener;
 
     private boolean isBusy = false;
-    private ArrayList<String> cmdQueue;
+    private Queue<String> cmdQueue;
 
     public static interface Listener {
         void onConnected();
@@ -37,9 +38,19 @@ public class BluetoothThread extends Thread {
         return instance;
     }
 
+    public void setIsBusy(boolean status) {
+        this.isBusy = status;
+        //Log.d("Status", "Status: " + Boolean.toString(status));
+    }
+
+    public boolean getIsBusy() {
+        return isBusy;
+    }
+
     protected BluetoothThread(BluetoothSocket socket, Listener listener) {
         this.socket = socket;
         this.listener = listener;
+        cmdQueue = new LinkedList<String>();
     }
 
     public void run() {
@@ -69,6 +80,7 @@ public class BluetoothThread extends Thread {
     private int bytes;
 
     private void manageConnectedSocket() {
+
         try{
             inputStream = socket.getInputStream();
             outputStream = new BufferedOutputStream(socket.getOutputStream());
@@ -107,7 +119,7 @@ public class BluetoothThread extends Thread {
         }
         outputStream.write(bytes);
         String data = new String(bytes, "US-ASCII");
-        Log.d("Output", "Writing: " + data);
+        //Log.d("Output", "Writing: " + data);
         outputStream.flush();
     }
 
@@ -122,21 +134,37 @@ public class BluetoothThread extends Thread {
     }
 
     public void queueCommand(String command) {
+        //Log.d("Queue", "Adding command: " + command);
         cmdQueue.add(command);
     }
 
-    private void execCommands() {
+    public void startQueueProcessor() {
         //Set up thread here and have it look for new entries in cmdQueue.  Verify that command is finished.
-
-
-
-
-        try {
-            Log.d("Sent", command);
-            this.write(command.getBytes(Charset.forName("US-ASCII")));
-        } catch (IOException e) {
-            Log.d("OBD", "IO Exception: " + e.getMessage());
-        }
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                while (true) {
+                    if (getIsBusy() == false) {
+                        try {
+                            //check if cmdQueue has any commands queued.
+                            if (!cmdQueue.isEmpty()) {
+                                //If so, pop one off and run the command.
+                                try {
+                                    setIsBusy(true);
+                                    String cmd = cmdQueue.remove();
+                                    //Log.d("Sent", cmd);
+                                    write(cmd.getBytes(Charset.forName("US-ASCII")));
+                                } catch (IOException e) {
+                                    Log.d("OBD", "IO Exception: " + e.getMessage());
+                                }
+                            }
+                            //Thread.sleep(200);
+                        } catch (Exception e) {
+                            Log.d("Exception", e.getMessage());
+                        }
+                    }
+                }
+            }
+        }).start();
     }
-
 }

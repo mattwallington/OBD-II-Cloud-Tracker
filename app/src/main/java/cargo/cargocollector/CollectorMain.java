@@ -249,36 +249,26 @@ public class CollectorMain extends Activity implements LocationListener, SensorE
             Log.d("Exception", e.getMessage());
         }
 
-        // Read this site:  http://www.codota.com/android/scenarios/51891a46da0a6c5c8ff8531f/android.bluetooth.BluetoothSocket?tag=out_2013_05_05_07_19_34
-
-        // You need to implement an inputstream and outputstream.
         BluetoothThread.Listener listener = new BluetoothThread.Listener() {
             public void onConnected() {
                 //Try sending a command.
                 try {
                     //Disable echo back.
-                    sendOBDCmd("ATE0\r");
-                    try {
-                        Thread.sleep(1000);
-                    } catch (Exception e) {
-                        Log.d("Exception", e.getMessage());
+                    //sendOBDCmd("ATE0\r");
+                    btinst.queueCommand("ATE0\r");
+                    btinst.queueCommand("ATZ1\r");
+                    btinst.queueCommand("ATL11\r");
+                    btinst.queueCommand("ATH01\r");
+                    btinst.queueCommand("ATS01\r");
+                    //btinst.queueCommand("ATSP0\r");
+
+
+                    //Get speed & rpm.
+                    for (int c=0; c < 10; c++) {
+                        btinst.queueCommand("010D1\r");
+                        btinst.queueCommand("010C1\r");
                     }
-                    //sendCmd("010D\r");
-                    /*
-                    sendCmd("ATI");
-                    Thread.sleep(1000);
-                    sendCmd("ATL1");
-                    Thread.sleep(1000);
-                    sendCmd("ATH1");
-                    Thread.sleep(1000);
-                    sendCmd("ATS1");
-                    Thread.sleep(1000);
-                    sendCmd("ATAL");
-                    Thread.sleep(1000);
-                    sendCmd("ATSP0");
-                    Thread.sleep(1000);
-                    */
-                    sendOBDCmd("010D\r");
+
                 } catch (Exception e) {
                     Log.d("OBD", e.getMessage());
                 }
@@ -289,6 +279,8 @@ public class CollectorMain extends Activity implements LocationListener, SensorE
 
                 try {
 
+                    btinst.setIsBusy(false);
+
                     String data = new String(buffer, "US-ASCII");
                     data = data.trim();
 
@@ -296,17 +288,15 @@ public class CollectorMain extends Activity implements LocationListener, SensorE
                     if (data.length() > 5) {
                         String substr = data.substring(0,5);
 
-                        if (substr.equals("41 0C")){
-                            Log.d("Result", "RPM");
-                            //RPM
-                            if (data.length() > 7)
-                                Log.d("RPM", data.substring(6, 8));
-                        }
-                        else if (substr.equals("41 0D")) {
-                            //Speed
+                        if (substr.equals("41 0C")){    //RPM
                             if (data.length() > 7) {
-                                String strspeed = data.substring(6,8);
-                                int speed = Integer.parseInt(strspeed, 16);
+                                int rpm = Integer.parseInt(data.substring(6).replaceAll("[^0-9A-F]" ,""), 16);
+                                Log.d("RPM", Integer.toString(rpm));
+                            }
+                        }
+                        else if (substr.equals("41 0D")) {  //Speed
+                            if (data.length() > 7) {
+                                int speed = Integer.parseInt(data.substring(6).replaceAll("[^0-9a-f]" ,""), 16);
                                 Log.d("Speed", Integer.toString(speed));
                             }
                         }
@@ -321,21 +311,10 @@ public class CollectorMain extends Activity implements LocationListener, SensorE
             public void onError(IOException e) {
                 Log.d("OBD", "Error: " + e.getMessage());
             }
-        };        Socket socket = null;
+        };
 
         btinst = BluetoothThread.newInstance(btsocket, listener);
-
-    }
-
-    private void sendOBDCmd(String command) {
-        try {
-            Log.d("Sent", command);
-            btinst.write(command.getBytes(Charset.forName("US-ASCII")));
-        } catch (IOException e) {
-            Log.d("OBD", "IO Exception: " + e.getMessage());
-        }
-
-
+        btinst.startQueueProcessor();
     }
 
     private void connectSocket(String socket_url) {
