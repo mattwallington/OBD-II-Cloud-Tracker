@@ -55,9 +55,6 @@ public class CollectorMain extends Activity implements LocationListener, SensorE
     private Float accel_x, accel_y, accel_z;
 
     /* Bluetooth / OBD2 */
-    private BluetoothAdapter btadapter;
-    private BluetoothSocket btsocket;
-    private static final UUID MY_UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
     BluetoothThread btinst;
 
     /* Socket */
@@ -219,6 +216,7 @@ public class CollectorMain extends Activity implements LocationListener, SensorE
      */
     private void getOBD() {
         //Get bluetooth adapter
+        /*
         btadapter = BluetoothAdapter.getDefaultAdapter();
         if (btadapter == null) {
             //Couldn't get adapter.
@@ -248,7 +246,9 @@ public class CollectorMain extends Activity implements LocationListener, SensorE
         catch (Exception e) {
             Log.d("Exception", e.getMessage());
         }
+        */
 
+        /*
         BluetoothThread.Listener listener = new BluetoothThread.Listener() {
             public void onConnected() {
                 //Try sending a command.
@@ -312,9 +312,30 @@ public class CollectorMain extends Activity implements LocationListener, SensorE
                 Log.d("OBD", "Error: " + e.getMessage());
             }
         };
+        */
 
-        btinst = BluetoothThread.newInstance(btsocket, listener);
+        //btinst = BluetoothThread.newInstance(btsocket, listener);
+        btinst = new BluetoothThread();
+        btinst.start();
         btinst.startQueueProcessor();
+
+        //Connecting message.
+        for (int c=30; c>0; c--) {
+            Log.d("ConnectionState", "Connecting: " + Integer.toString(c));
+            //Wait for connection.
+            if (btinst.isConnected) {
+                Log.d("ConnectionState", "Connected");
+                break;
+            }
+            try {
+                Thread.sleep(1000);
+            } catch (Exception e) {
+                Log.d("Exception", e.getMessage());
+            }
+        }
+
+        btinst.loopCommands();
+
     }
 
     private void connectSocket(String socket_url) {
