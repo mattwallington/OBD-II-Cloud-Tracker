@@ -74,28 +74,16 @@ public class ObdService {
             isClosing = false;
             Log.d("Status", "Connecting...");
             socket.connect();
+
+            Log.d("Status", "Connected");
+            listener.onConnected();
+
         } catch (IOException connectException) {
             try {
                 cancel();
             } catch (IOException e) {}
             listener.onError(connectException);
             return;
-        }
-
-        //Check if connected.
-        try{
-            inputStream = socket.getInputStream();
-            outputStream = new BufferedOutputStream(socket.getOutputStream());
-
-            Log.d("Status", "Connected");
-            listener.onConnected();
-
-        } catch (IOException e) {
-            if (isClosing)
-                return;
-
-            listener.onError(e);
-            throw new RuntimeException(e);
         }
 
         //Call read thread.
@@ -145,6 +133,18 @@ public class ObdService {
     private void setListener() {
         this.listener = new ObdService.Listener() {
             public void onConnected() {
+
+                try{
+                    inputStream = socket.getInputStream();
+                    outputStream = new BufferedOutputStream(socket.getOutputStream());
+
+                } catch (IOException e) {
+                    if (isClosing)
+                        return;
+
+                    listener.onError(e);
+                    throw new RuntimeException(e);
+                }
 
                 Log.d("Status", "onConnected() inside");
                 try {
@@ -274,36 +274,26 @@ public class ObdService {
 
             public void run() {
                 String cmd = null;
-                int count = 0;
-                Log.d("Starting", "Number: " + Math.random());
                 while (true) {
                     cmd = null;
-                    count = 0;
                     try {
                         //check if cmdQueue has any commands queued.
                         if (!cmdQueue.isEmpty() && isBusy == false) {
-                            count=1;
                             //If so, pop one off and run the command.
                             try {
-                                count=2;
                                 setIsBusy(true);
-                                count=3;
                                 cmd = cmdQueue.poll();
-                                count=4;
                                 if (cmd != null) {
-                                    count=5;
                                     write(cmd.getBytes(Charset.forName("US-ASCII")));
-                                    count=6;
                                 }
 
                             } catch (IOException ioe) {
-                                count=7;
                                 Log.d("Exception: QueueProcessorIO", "Error: " + ioe.getMessage());
                             }
                         }
                         Thread.sleep(200);
                     } catch (Exception e) {
-                        Log.d("Exception: QueueProcessor: " + e.getCause(), "Error: " + e.getMessage() + " Command: " + cmd + " Count: " + Integer.toString(count));
+                        Log.d("Exception: QueueProcessor: " + e.getCause(), "Error: " + e.getMessage() + " Command: " + cmd);
                     }
                 }
             }
