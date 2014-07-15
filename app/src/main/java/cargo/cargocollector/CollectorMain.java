@@ -21,7 +21,8 @@ public class CollectorMain extends Activity {
     SensorService sensorService = null;
 
     /* Socket */
-    private static final String SOCKET_URL = "http://10.1.10.12:3232/";
+    //private static final String SOCKET_URL = "http://10.1.10.12:3232/";
+    private static final String SOCKET_URL = "http://demo.cargo.ai:3232/";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
