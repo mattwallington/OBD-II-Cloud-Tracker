@@ -171,25 +171,24 @@ public class ObdService {
                     data = new String(buffer, "US-ASCII").trim();
 
                     if (data.length() > 5) {
-                        String substr = data.substring(0,5);
+                        String obdcmdresp = data.substring(0,5);
 
-                        if (substr.equals("41 0C")){    //RPM
+                        if (obdcmdresp.equals("41 0C")){    //RPM
                             if (data.length() > 7) {
-                                int rpm = Integer.parseInt(data.substring(6).replaceAll("[^0-9A-F]" ,""), 16);
-                                if (rpm < 27500 || rpm > 29000)
-                                    Log.d("RPM", Integer.toString(rpm) + "  Data: " + data);
-                                else
+                                String strippedString = data.replaceAll("[^0-9A-F]" ,"");
+                                if (strippedString.length() == 8) {
+                                    int rpm = Integer.parseInt(strippedString.substring(4), 16);
                                     Log.d("RPM", Integer.toString(rpm));
+                                }
                             }
                         }
-                        else if (substr.equals("41 0D")) {  //Speed
+                        else if (obdcmdresp.equals("41 0D")) {  //Speed
                             if (data.length() > 7) {
-                                int speed = Integer.parseInt(data.substring(6, 8).replaceAll("[^0-9a-f]" ,""), 16);
-                                if (speed < 64 || speed > 68)
-                                    Log.d("Speed", Integer.toString(speed) + "  Data: " + data);
-                                else
-                                    Log.d("Speed", Integer.toString(speed));
-
+                                String strippedString = data.replaceAll("[^0-9A-F]", "");
+                                if (strippedString.length() == 6) {
+                                    int speed = Integer.parseInt(strippedString.substring(4), 16);
+                                    Log.d("Speed", "Speed: " + Integer.toString(speed));
+                                }
                             }
                         }
                     }
