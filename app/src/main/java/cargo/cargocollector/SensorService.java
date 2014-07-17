@@ -5,6 +5,7 @@ import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorListener;
 import android.hardware.SensorManager;
+import android.util.Log;
 
 /**
  * Created by matt on 7/8/14.
@@ -42,6 +43,11 @@ public class SensorService implements SensorEventListener {
 
     public void onAccuracyChanged(Sensor sensor, int accuracy) {
 
+    }
+
+    public void cancel() {
+        Log.d("Sensor", "Stopping sensor listener.");
+        sensorManager.unregisterListener(this);
     }
 
 }

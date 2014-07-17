@@ -19,9 +19,12 @@ public class LocationService implements LocationListener {
     private static final int MIN_DISTANCE = 1;
     private static final int MIN_TIME = 1000;
 
+    private Context context = null;
+
 
     public LocationService(LocationManager locationManager) {
         this.locationManager = locationManager;
+        this.context = context;
         activateLocation();
     }
 
@@ -56,7 +59,7 @@ public class LocationService implements LocationListener {
 
         }
         catch (Exception e) {
-            Log.d("Exception", e.getMessage());
+            Log.d("Location", e.getMessage());
         }
     }
 
@@ -80,5 +83,10 @@ public class LocationService implements LocationListener {
         Criteria criteria = new Criteria();
         provider = locationManager.getBestProvider(criteria, true);
         Log.d("Location", "Location Provider: " + provider);
+    }
+
+    public void cancel() {
+        Log.d("Location", "Cancelling Location service");
+        locationManager.removeUpdates(this);
     }
 }

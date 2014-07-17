@@ -48,7 +48,7 @@ public class SocketIOService {
             socket.connect();
             return true;
         } catch (Exception e) {
-            Log.d("Exception", e.getMessage());
+            Log.d("SocketIO", e.getMessage());
             return false;
         }
     }
@@ -56,7 +56,7 @@ public class SocketIOService {
     public void sendData(JSONObject obj) {
 
         //JSONObject obj = new JSONObject();
-        socket.emit("data", obj);
+        socket.emit("SocketIO", "Sending Data: " + obj);
 
     }
 }
