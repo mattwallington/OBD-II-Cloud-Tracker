@@ -20,17 +20,20 @@ public class ServiceInitiator {
     private Context mContext;
     private Intent mIntent;
 
-    private MainActivity mActivity;
+    private MainActivity mActivity = null;
 
     private ServiceConnection mConnection = null;
     private CollectorService mBoundService = null;
     private boolean mIsBound = false;
-    private boolean mIsRunning = false;
 
 
-    public ServiceInitiator(MainActivity activity, Context context) {
+    public ServiceInitiator(Context context, MainActivity activity) {
         mContext = context;
         mActivity = activity;
+    }
+
+    public ServiceInitiator(Context context) {
+        mContext = context;
     }
 
     public void initiateService() {
@@ -69,12 +72,10 @@ public class ServiceInitiator {
             public void onServiceConnected(ComponentName className, IBinder service) {
                 mBoundService = ((CollectorService.CollectorBinder) service).getService();
                 Log.d("ServiceBinder", "Service bound");
-                //mTvStatus.append("Service bound.\n");
                 mIsBound = true;
 
-                mActivity.setButtonStatus(!mBoundService.getIsRunning(), mBoundService.getIsRunning());
-                //mStartButton.setEnabled(!mBoundService.getIsRunning());
-                //mStopButton.setEnabled(mBoundService.getIsRunning());
+                if (mActivity != null)
+                    mActivity.setButtonStatus(!mBoundService.getIsRunning(), mBoundService.getIsRunning());
             }
 
             public void onServiceDisconnected(ComponentName className) {

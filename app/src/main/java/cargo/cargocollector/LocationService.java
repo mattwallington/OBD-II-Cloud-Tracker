@@ -1,6 +1,5 @@
 package cargo.cargocollector;
 
-import android.content.Context;
 import android.location.Criteria;
 import android.location.Location;
 import android.location.LocationListener;
@@ -14,17 +13,13 @@ import android.util.Log;
 public class LocationService implements LocationListener {
 
     /*  Location */
-    private LocationManager locationManager;
-    private String provider;
+    private LocationManager mLocationManager;
+    private String mProvider;
     private static final int MIN_DISTANCE = 1;
     private static final int MIN_TIME = 1000;
 
-    private Context context = null;
-
-
     public LocationService(LocationManager locationManager) {
-        this.locationManager = locationManager;
-        this.context = context;
+        mLocationManager = locationManager;
         activateLocation();
     }
 
@@ -36,7 +31,7 @@ public class LocationService implements LocationListener {
         setBestProvider();
 
         //Get initial location.  May be invalid.
-        Location location = locationManager.getLastKnownLocation(provider);
+        Location location = mLocationManager.getLastKnownLocation(mProvider);
 
         //Initialize location fields.
         if (location != null) {
@@ -45,7 +40,7 @@ public class LocationService implements LocationListener {
             Log.d("Location", "location is null");
         }
 
-        locationManager.requestLocationUpdates(provider, MIN_TIME, MIN_DISTANCE, this);
+        mLocationManager.requestLocationUpdates(mProvider, MIN_TIME, MIN_DISTANCE, this);
 
     }
 
@@ -81,12 +76,12 @@ public class LocationService implements LocationListener {
 
     private void setBestProvider() {
         Criteria criteria = new Criteria();
-        provider = locationManager.getBestProvider(criteria, true);
-        Log.d("Location", "Location Provider: " + provider);
+        mProvider = mLocationManager.getBestProvider(criteria, true);
+        Log.d("Location", "Location Provider: " + mProvider);
     }
 
     public void cancel() {
         Log.d("Location", "Cancelling Location service");
-        locationManager.removeUpdates(this);
+        mLocationManager.removeUpdates(this);
     }
 }

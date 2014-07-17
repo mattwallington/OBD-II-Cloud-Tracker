@@ -24,7 +24,7 @@ public class MainActivity extends Activity {
 
     private TextView mTvStatus;
 
-    private ServiceInitiator initiator;
+    private ServiceInitiator mInitiator;
 
     private Button mStartButton = null;
     private Button mStopButton = null;
@@ -39,15 +39,14 @@ public class MainActivity extends Activity {
         mStopButton = (Button) findViewById(R.id.stopservice);
         mTvStatus = (TextView) findViewById(R.id.service_status);
 
-        initiator = new ServiceInitiator(MainActivity.this, this);
+        mInitiator = new ServiceInitiator(this, MainActivity.this);
 
-        initiator.initiateService();
+        mInitiator.initiateService();
 
         mStartButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                //startService(mIntent);
-                initiator.start();
+                mInitiator.start();
                 mStartButton.setEnabled(false);
                 mStopButton.setEnabled(true);
             }
@@ -56,7 +55,7 @@ public class MainActivity extends Activity {
         mStopButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                initiator.stop();
+                mInitiator.stop();
                 mStartButton.setEnabled(true);
                 mStopButton.setEnabled(false);
             }
@@ -76,7 +75,7 @@ public class MainActivity extends Activity {
         Log.d("Activity", "OnResume()");
         super.onResume();
 
-        initiator.bind();
+        mInitiator.bind();
 
     }
 
@@ -86,7 +85,7 @@ public class MainActivity extends Activity {
         super.onPause();
 
         //Unbind service.
-        initiator.unbind();
+        mInitiator.unbind();
 
     }
 

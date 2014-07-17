@@ -14,11 +14,11 @@ import org.json.JSONObject;
 public class CollectorService extends Service {
     private final IBinder mBinder = new CollectorBinder();
 
-    ObdService obdService = null;
-    LocationService locationService = null;
-    SensorService sensorService = null;
+    private ObdService mObdService = null;
+    private LocationService mLocationService = null;
+    private SensorService mSensorService = null;
 
-    private boolean isRunning = false;
+    private boolean mIsRunning = false;
 
     /* Socket */
     //private static final String SOCKET_URL = "http://10.1.10.12:3232/";
@@ -56,16 +56,16 @@ public class CollectorService extends Service {
         Log.d("Service", "Starting service with start ID: " + startId + ": " + intent);
 
         //Set service status.
-        isRunning = true;
+        mIsRunning = true;
 
         //Activate location tracking.
-        locationService = new LocationService((LocationManager) getSystemService(Context.LOCATION_SERVICE));
+        mLocationService = new LocationService((LocationManager) getSystemService(Context.LOCATION_SERVICE));
 
         //Activate Accelerometer
-        sensorService = new SensorService((SensorManager)getSystemService(SENSOR_SERVICE));
+        mSensorService = new SensorService((SensorManager)getSystemService(SENSOR_SERVICE));
 
         //Activate OBD service
-        obdService = new ObdService();
+        mObdService = new ObdService();
 
         //Connect to socket.
         SocketIOService server = new SocketIOService(SOCKET_URL);
@@ -91,31 +91,31 @@ public class CollectorService extends Service {
 
         //Destroy location service.
         try {
-            locationService.cancel();
+            mLocationService.cancel();
         } catch (Exception locexcept) {
             Log.d("Location", "Exception: " + locexcept.getMessage());
         }
 
         //Destroy sensor service.
         try {
-            sensorService.cancel();
+            mSensorService.cancel();
         } catch (Exception sensorexcept) {
             Log.d("Sensor", "Exception: " + sensorexcept.getMessage());
         }
 
         //Destroy OBD exceptions.
         try {
-            obdService.cancel();
+            mObdService.cancel();
         } catch (Exception obdexcept) {
             Log.d("OBD", "Exception: " + obdexcept.getMessage());
         }
 
         //Set service status
-        isRunning = false;
+        mIsRunning = false;
     }
 
     public boolean getIsRunning() {
-        return isRunning;
+        return mIsRunning;
     }
 
 }
