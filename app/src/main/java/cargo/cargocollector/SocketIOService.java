@@ -13,16 +13,18 @@ import org.json.JSONObject;
  */
 public class SocketIOService {
     private Socket mSocket = null;
+    private boolean status;
 
 
     public SocketIOService(String socket_url) {
         //Constructor
-        boolean status = connectSocket(socket_url);
+        status = connectSocket(socket_url);
 
     }
 
     public boolean connectSocket(String socket_url) {
         try {
+            Log.d("SocketIO", "Connecting to " + socket_url);
             mSocket = IO.socket(socket_url);
             mSocket.on(Socket.EVENT_CONNECT, new Emitter.Listener() {
 
@@ -54,9 +56,20 @@ public class SocketIOService {
     }
 
     public void sendData(JSONObject obj) {
-
-        //JSONObject obj = new JSONObject();
-        mSocket.emit("SocketIO", "Sending Data: " + obj);
-
+        JSONObject outerObj = new JSONObject();
+        try {
+            outerObj.put("device_id", "2cda7727f56276e8de548ab2");
+            outerObj.put("device_data", obj);
+        } catch (Exception e) {
+            Log.d("SocketIO", e.getMessage());
+        }
+        mSocket.emit("event_data", outerObj.toString());
+        /*
+        try {
+            Log.d("SocketIO", "Sending Data: " + outerObj.toString(2));
+        } catch (Exception e) {
+            Log.d("SocketIO", "Exception: " + e.getMessage());
+        }
+        */
     }
 }

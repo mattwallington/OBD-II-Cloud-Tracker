@@ -3,7 +3,10 @@ package cargo.cargocollector;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothSocket;
+import android.content.Context;
 import android.util.Log;
+
+import org.json.JSONObject;
 
 import java.io.BufferedOutputStream;
 import java.io.IOException;
@@ -57,11 +60,14 @@ public class ObdService {
     private int mCurLength;
     private int mBytes;
 
+    private SocketIOService mServer;
+
+
     /*
      *  Methods.
      */
-    public ObdService() {
-
+    public ObdService(SocketIOService server) {
+        mServer = server;
         mCmdQueue = new LinkedList<String>();
 
         //Set bluetooth device and create socket.
@@ -192,7 +198,11 @@ public class ObdService {
                                 String strippedString = data.replaceAll("[^0-9A-F]" ,"");
                                 if (strippedString.length() == 8) {
                                     int rpm = Integer.parseInt(strippedString.substring(4), 16);
-                                    Log.d("OBD", Integer.toString(rpm));
+                                    //Log.d("OBD", Integer.toString(rpm));
+                                    JSONObject obj = new JSONObject();
+                                    obj.put("RPM", rpm);
+                                    mServer.sendData(obj);
+                                    Log.d("OBD", "Queue Length: " + mCmdQueue.size());
                                 }
                             }
                         }
@@ -201,7 +211,10 @@ public class ObdService {
                                 String strippedString = data.replaceAll("[^0-9A-F]", "");
                                 if (strippedString.length() == 6) {
                                     int speed = Integer.parseInt(strippedString.substring(4), 16);
-                                    Log.d("OBD", "Speed: " + Integer.toString(speed));
+                                    //Log.d("OBD", "Speed: " + Integer.toString(speed));
+                                    JSONObject obj = new JSONObject();
+                                    obj.put("SPEED", speed);
+                                    mServer.sendData(obj);
                                 }
                             }
                         }
@@ -294,7 +307,7 @@ public class ObdService {
             public void run() {
                 Log.d("OBD", "Started Queue Processor.");
                 String cmd = null;
-                while (mLoopProc) {
+                while (mQueueProc) {
                     cmd = null;
                     try {
                         //check if cmdQueue has any commands queued.

@@ -24,7 +24,6 @@ public class CollectorService extends Service {
     //private static final String SOCKET_URL = "http://10.1.10.12:3232/";
     private static final String SOCKET_URL = "http://demo.cargo.ai:3232/";
 
-
     public CollectorService() {
 
     }
@@ -58,27 +57,27 @@ public class CollectorService extends Service {
         //Set service status.
         mIsRunning = true;
 
-        //Activate location tracking.
-        mLocationService = new LocationService((LocationManager) getSystemService(Context.LOCATION_SERVICE));
-
-        //Activate Accelerometer
-        mSensorService = new SensorService((SensorManager)getSystemService(SENSOR_SERVICE));
-
-        //Activate OBD service
-        mObdService = new ObdService();
-
         //Connect to socket.
         SocketIOService server = new SocketIOService(SOCKET_URL);
 
+        //Activate location tracking.
+        mLocationService = new LocationService((LocationManager) getSystemService(Context.LOCATION_SERVICE), server);
+
+        //Activate Accelerometer
+        //mSensorService = new SensorService((SensorManager)getSystemService(SENSOR_SERVICE), server);
+
+        //Activate OBD service
+        mObdService = new ObdService(server);
+
+        /*
         JSONObject obj = new JSONObject();
         try {
-            obj.put("user", "user");
-            obj.put("pass", "pass");
             obj.put("test", "testdata");
         } catch (Exception e) {
             Log.d("Exception", e.getMessage());
         }
         server.sendData(obj);
+        */
 
         //Continue running until we stop the service.
         return START_STICKY;
@@ -117,5 +116,4 @@ public class CollectorService extends Service {
     public boolean getIsRunning() {
         return mIsRunning;
     }
-
 }

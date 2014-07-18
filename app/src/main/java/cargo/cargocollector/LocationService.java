@@ -7,6 +7,8 @@ import android.location.LocationManager;
 import android.os.Bundle;
 import android.util.Log;
 
+import org.json.JSONObject;
+
 /**
  * Created by matt on 7/8/14.
  */
@@ -17,8 +19,10 @@ public class LocationService implements LocationListener {
     private String mProvider;
     private static final int MIN_DISTANCE = 1;
     private static final int MIN_TIME = 1000;
+    private SocketIOService mServer;
 
-    public LocationService(LocationManager locationManager) {
+    public LocationService(LocationManager locationManager, SocketIOService server) {
+        mServer = server;
         mLocationManager = locationManager;
         activateLocation();
     }
@@ -48,10 +52,13 @@ public class LocationService implements LocationListener {
     public void onLocationChanged(Location location) {
         //deal with location.
         try {
-            String point = Double.toString(location.getLatitude()) + ", " + Double.toString(location.getLongitude());
-            Log.d("Location", point);
+            //String point = Double.toString(location.getLatitude()) + ", " + Double.toString(location.getLongitude());
+            //Log.d("Location", point);
             //TODO: Do something with location data.
-
+            JSONObject obj = new JSONObject();
+            obj.put("LOCATION_LAT", location.getLatitude());
+            obj.put("LOCATION_LONG", location.getLongitude());
+            mServer.sendData(obj);
         }
         catch (Exception e) {
             Log.d("Location", e.getMessage());

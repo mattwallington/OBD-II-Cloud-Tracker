@@ -68,8 +68,6 @@ public class MainActivity extends Activity {
     }
 
 
-
-
     @Override
     protected void onResume() {
         Log.d("Activity", "OnResume()");
