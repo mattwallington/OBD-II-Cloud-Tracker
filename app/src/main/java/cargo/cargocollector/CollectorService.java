@@ -69,16 +69,6 @@ public class CollectorService extends Service {
         //Activate OBD service
         mObdService = new ObdService(server);
 
-        /*
-        JSONObject obj = new JSONObject();
-        try {
-            obj.put("test", "testdata");
-        } catch (Exception e) {
-            Log.d("Exception", e.getMessage());
-        }
-        server.sendData(obj);
-        */
-
         //Continue running until we stop the service.
         return START_STICKY;
     }
