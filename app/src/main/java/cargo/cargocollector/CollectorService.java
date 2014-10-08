@@ -61,14 +61,15 @@ public class CollectorService extends Service {
         SocketIOService server = new SocketIOService(SOCKET_URL);
 
         //Activate location tracking.
-        mLocationService = new LocationService((LocationManager) getSystemService(Context.LOCATION_SERVICE), server);
-
+        //mLocationService = new LocationService((LocationManager) getSystemService(Context.LOCATION_SERVICE), server);
+        mLocationService = new LocationService((LocationManager) getSystemService(Context.LOCATION_SERVICE));
+    /*
         //Activate Accelerometer
         //mSensorService = new SensorService((SensorManager)getSystemService(SENSOR_SERVICE), server);
 
         //Activate OBD service
         mObdService = new ObdService(server);
-
+    */
         //Continue running until we stop the service.
         return START_STICKY;
     }
@@ -85,6 +86,7 @@ public class CollectorService extends Service {
             Log.d("Location", "Exception: " + locexcept.getMessage());
         }
 
+    /*
         //Destroy sensor service.
         try {
             mSensorService.cancel();
@@ -98,7 +100,7 @@ public class CollectorService extends Service {
         } catch (Exception obdexcept) {
             Log.d("OBD", "Exception: " + obdexcept.getMessage());
         }
-
+    */
         //Set service status
         mIsRunning = false;
     }

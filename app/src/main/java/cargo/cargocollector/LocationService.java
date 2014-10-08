@@ -19,10 +19,11 @@ public class LocationService implements LocationListener {
     private String mProvider;
     private static final int MIN_DISTANCE = 1;
     private static final int MIN_TIME = 1000;
-    private SocketIOService mServer;
+    //private SocketIOService mServer;
 
-    public LocationService(LocationManager locationManager, SocketIOService server) {
-        mServer = server;
+    //public LocationService(LocationManager locationManager, SocketIOService server) {
+    public LocationService(LocationManager locationManager) {
+        //mServer = server;
         mLocationManager = locationManager;
         activateLocation();
     }
@@ -55,10 +56,16 @@ public class LocationService implements LocationListener {
             //String point = Double.toString(location.getLatitude()) + ", " + Double.toString(location.getLongitude());
             //Log.d("Location", point);
             //TODO: Do something with location data.
+
+            /*
             JSONObject obj = new JSONObject();
             obj.put("LOCATION_LAT", location.getLatitude());
             obj.put("LOCATION_LONG", location.getLongitude());
             mServer.sendData(obj);
+            */
+            String coords = new String("GPS: " + Double.toString(location.getLatitude()) + ", " + Double.toString(location.getLongitude()));
+            Log.d("GPS", coords);
+
         }
         catch (Exception e) {
             Log.d("Location", e.getMessage());
