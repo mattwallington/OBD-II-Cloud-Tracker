@@ -22,7 +22,7 @@ public class CollectorService extends Service {
 
     /* Socket */
     //private static final String SOCKET_URL = "http://10.1.10.12:3232/";
-    private static final String SOCKET_URL = "http://demo.cargo.ai:3232/";
+    private static final String SOCKET_URL = "http://prototype.cargo.ai:31337/";
 
     public CollectorService() {
 
@@ -62,7 +62,7 @@ public class CollectorService extends Service {
 
         //Activate location tracking.
         //mLocationService = new LocationService((LocationManager) getSystemService(Context.LOCATION_SERVICE), server);
-        mLocationService = new LocationService((LocationManager) getSystemService(Context.LOCATION_SERVICE));
+        mLocationService = new LocationService((LocationManager) getSystemService(Context.LOCATION_SERVICE), server);
     /*
         //Activate Accelerometer
         //mSensorService = new SensorService((SensorManager)getSystemService(SENSOR_SERVICE), server);

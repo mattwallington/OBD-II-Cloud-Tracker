@@ -34,7 +34,7 @@ public class SocketIOService {
                     //socket.disconnect();
                 }
 
-            }).on("event", new Emitter.Listener() {
+            }).on("data", new Emitter.Listener() {
 
                 @Override
                 public void call(Object... args) {
@@ -56,20 +56,6 @@ public class SocketIOService {
     }
 
     public void sendData(JSONObject obj) {
-        JSONObject outerObj = new JSONObject();
-        try {
-            outerObj.put("device_id", "2cda7727f56276e8de548ab2");
-            outerObj.put("device_data", obj);
-        } catch (Exception e) {
-            Log.d("SocketIO", e.getMessage());
-        }
-        mSocket.emit("event_data", outerObj.toString());
-        /*
-        try {
-            Log.d("SocketIO", "Sending Data: " + outerObj.toString(2));
-        } catch (Exception e) {
-            Log.d("SocketIO", "Exception: " + e.getMessage());
-        }
-        */
+        mSocket.emit("data", obj);
     }
 }

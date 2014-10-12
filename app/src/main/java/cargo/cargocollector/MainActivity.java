@@ -60,6 +60,7 @@ public class MainActivity extends Activity {
                 mStopButton.setEnabled(false);
             }
         });
+
     }
 
     public void setButtonStatus(boolean start, boolean stop) {
