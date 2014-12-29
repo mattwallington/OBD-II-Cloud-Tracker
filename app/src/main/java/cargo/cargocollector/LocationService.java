@@ -58,6 +58,8 @@ public class LocationService implements LocationListener {
             //Log.d("Location", point);
             //TODO: Do something with location data.
 
+            Log.d("GPS", "Sending geometry");
+
             JSONArray latLng = new JSONArray();
             latLng.put(location.getLatitude());
             latLng.put(location.getLongitude());
@@ -65,13 +67,12 @@ public class LocationService implements LocationListener {
             JSONObject inner = new JSONObject();
             inner.put("type", "Point");
             inner.put("coordinates", latLng);
+            inner.put("timestamp", System.currentTimeMillis()/1000);
 
             JSONObject outer = new JSONObject();
             outer.put("geometry", inner);
 
             mServer.sendData(outer);
-
-            Log.d("GPS", "Sending geometry");
 
             //Send test data for alert.
             /*
@@ -84,6 +85,7 @@ public class LocationService implements LocationListener {
                 }
             }
             */
+            /*
             inner = new JSONObject();
             inner.put("timestamp", System.currentTimeMillis()/1000);
             inner.put("intensity", 100);
@@ -96,6 +98,7 @@ public class LocationService implements LocationListener {
             Log.d("GPS", "Sending bumped: "+outer.toString());
 
             mServer.sendData(outer);
+            */
         }
         catch (Exception e) {
             Log.d("Location", e.getMessage());

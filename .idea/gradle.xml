@@ -8,8 +8,8 @@
         <option name="gradleHome" value="$USER_HOME$/Programs/gradle-1.12" />
         <option name="modules">
           <set>
-            <option value="$PROJECT_DIR$" />
-            <option value="$PROJECT_DIR$/app" />
+            <option value="/media/hd3/matt/Development/CargoCollector" />
+            <option value="/media/hd3/matt/Development/CargoCollector/app" />
           </set>
         </option>
       </GradleProjectSettings>
