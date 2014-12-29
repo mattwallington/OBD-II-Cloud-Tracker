@@ -39,10 +39,11 @@ public class MainActivity extends Activity {
         mStopButton = (Button) findViewById(R.id.stopservice);
         mTvStatus = (TextView) findViewById(R.id.service_status);
 
+        //Kick off Android service.
         mInitiator = new ServiceInitiator(this, MainActivity.this);
-
         mInitiator.initiateService();
 
+        //Buttons to start/stop background service.
         mStartButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -63,19 +64,21 @@ public class MainActivity extends Activity {
 
     }
 
+    /*
+     *  Toggle button enabled.
+     */
     public void setButtonStatus(boolean start, boolean stop) {
         mStartButton.setEnabled(start);
         mStopButton.setEnabled(stop);
     }
-
 
     @Override
     protected void onResume() {
         Log.d("Activity", "OnResume()");
         super.onResume();
 
+        //Bind to background service.
         mInitiator.bind();
-
     }
 
     @Override

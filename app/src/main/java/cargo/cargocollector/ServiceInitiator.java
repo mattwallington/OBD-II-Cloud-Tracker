@@ -14,6 +14,7 @@ import android.util.Log;
 
 /**
  * Created by matt on 7/16/14.
+ * Create Android service.
  */
 public class ServiceInitiator {
 

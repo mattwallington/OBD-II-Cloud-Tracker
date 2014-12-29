@@ -10,6 +10,7 @@ import org.json.JSONObject;
 
 /**
  * Created by matt on 7/8/14.
+ * Service creates a Socket.io connection to a socket server and handles sending JSON objects.
  */
 public class SocketIOService {
     private Socket mSocket = null;

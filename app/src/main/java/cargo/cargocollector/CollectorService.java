@@ -21,8 +21,7 @@ public class CollectorService extends Service {
     private boolean mIsRunning = false;
 
     /* Socket */
-    //private static final String SOCKET_URL = "http://10.1.10.12:3232/";
-    private static final String SOCKET_URL = "http://prototype.cargo.ai:31337/";
+    private static final String SOCKET_URL = "http://srv.cargo.ai:31337/";
 
     public CollectorService() {
 
@@ -49,6 +48,9 @@ public class CollectorService extends Service {
         Log.d("Service", "onCreate()");
     }
 
+    /*
+     * Start each of the collection services.
+     */
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         Log.d("Service", "onStartCommand()");
@@ -60,16 +62,15 @@ public class CollectorService extends Service {
         //Connect to socket.
         SocketIOService server = new SocketIOService(SOCKET_URL);
 
-        //Activate location tracking.
-        //mLocationService = new LocationService((LocationManager) getSystemService(Context.LOCATION_SERVICE), server);
+        //Activate location tracking service
         mLocationService = new LocationService((LocationManager) getSystemService(Context.LOCATION_SERVICE), server);
-    /*
-        //Activate Accelerometer
-        //mSensorService = new SensorService((SensorManager)getSystemService(SENSOR_SERVICE), server);
+
+        //Activate Accelerometer service
+        mSensorService = new SensorService((SensorManager)getSystemService(SENSOR_SERVICE), server);
 
         //Activate OBD service
         mObdService = new ObdService(server);
-    */
+
         //Continue running until we stop the service.
         return START_STICKY;
     }
@@ -86,7 +87,6 @@ public class CollectorService extends Service {
             Log.d("Location", "Exception: " + locexcept.getMessage());
         }
 
-    /*
         //Destroy sensor service.
         try {
             mSensorService.cancel();
@@ -100,7 +100,7 @@ public class CollectorService extends Service {
         } catch (Exception obdexcept) {
             Log.d("OBD", "Exception: " + obdexcept.getMessage());
         }
-    */
+
         //Set service status
         mIsRunning = false;
     }

@@ -22,6 +22,7 @@ import java.util.UUID;
 
 /**
  * Created by matt on 6/18/14.
+ * Connect to a bluetooth OBD2 reader and pull PIDs on a frequency.
  */
 public class ObdService {
 
@@ -64,7 +65,7 @@ public class ObdService {
 
 
     /*
-     *  Methods.
+     *  Constructor.
      */
     public ObdService(SocketIOService server) {
         mServer = server;
@@ -99,12 +100,16 @@ public class ObdService {
         //Call read thread.
         startReadData();
 
-        //Initiate write queue.
+        //Create queue thread to send commands to the car on an interval to not overload the car's data bus.
         startQueueProcessor();
 
+        //Throw successive commands at the queue.
         startLoopCommands();
     }
 
+    /*
+     * Bind to bluetooth device.
+     */
     private boolean createSocket() {
         try {
             mBtAdapter = BluetoothAdapter.getDefaultAdapter();
@@ -150,6 +155,9 @@ public class ObdService {
         return true;
     }
 
+    /*
+     * Define listener.  Implements connection, data received, disconnected, and error events.
+     */
     private void setListener() {
         this.mListener = new ObdService.Listener() {
             public void onConnected() {
@@ -167,6 +175,8 @@ public class ObdService {
                 }
 
                 Log.d("OBD", "onConnected() inside");
+
+                //Send serial commands to configure car for upcoming comands.
                 try {
                     //Disable echo back.
                     //sendOBDCmd("ATE0\r");
@@ -175,8 +185,8 @@ public class ObdService {
                     queueCommand("ATL11\r");
                     queueCommand("ATH01\r");
                     queueCommand("ATS01\r");
-                    //btinst.queueCommand("ATSP0\r");
 
+                    //Set connection flag.
                     mIsConnected = true;
                 } catch (Exception e) {
                     Log.d("OBD", "Error: " + e.getMessage());
@@ -191,14 +201,16 @@ public class ObdService {
                     data = new String(buffer, "US-ASCII").trim();
 
                     if (data.length() > 5) {
-                        String obdcmdresp = data.substring(0,5);
+                        String obdCmdResp = data.substring(0,5);
 
-                        if (obdcmdresp.equals("41 0C")){    //RPM
+                        if (obdCmdResp.equals("41 0C")){    //RPM
                             if (data.length() > 7) {
                                 String strippedString = data.replaceAll("[^0-9A-F]" ,"");
                                 if (strippedString.length() == 8) {
                                     int rpm = Integer.parseInt(strippedString.substring(4), 16);
                                     //Log.d("OBD", Integer.toString(rpm));
+
+                                    //Store RPM in JSON object and send to socket server.
                                     JSONObject obj = new JSONObject();
                                     obj.put("RPM", rpm);
                                     mServer.sendData(obj);
@@ -206,12 +218,14 @@ public class ObdService {
                                 }
                             }
                         }
-                        else if (obdcmdresp.equals("41 0D")) {  //Speed
+                        else if (obdCmdResp.equals("41 0D")) {  //Speed
                             if (data.length() > 7) {
                                 String strippedString = data.replaceAll("[^0-9A-F]", "");
                                 if (strippedString.length() == 6) {
                                     int speed = Integer.parseInt(strippedString.substring(4), 16);
                                     //Log.d("OBD", "Speed: " + Integer.toString(speed));
+
+                                    //Store speed in JSON object and send to socket server.
                                     JSONObject obj = new JSONObject();
                                     obj.put("SPEED", speed);
                                     mServer.sendData(obj);
@@ -225,6 +239,8 @@ public class ObdService {
             }
             public void onDisconnected() {
                 Log.d("OBD", "onDisconnected()");
+
+                //Set connection flag.
                 mIsConnected = false;
             }
             public void onError(Exception e) {
@@ -238,11 +254,14 @@ public class ObdService {
         };
     }
 
+    // Flag for blocking sending commands to the car while current command is processing.
     private void setIsBusy(boolean status) {
         this.mIsBusy = status;
     }
 
-    /* Call this from the main Activity to send data to the OBD Device. */
+    /*
+     * Send serial data to the bluetooth device.
+     */
     public void write(byte[] bytes) throws IOException {
         if (mOutputStream == null) {
             throw new IllegalStateException("Wait connection to be opened");
@@ -253,7 +272,9 @@ public class ObdService {
         mOutputStream.flush();
     }
 
-    /* Will cancel an in-progress connection, and close the socket. */
+    /*
+     * Will cancel an in-progress connection, and close the socket.
+     */
     public void cancel() throws IOException {
         Log.d("OBD", "Cancelling OBD service");
         mIsClosing = true;
@@ -269,13 +290,16 @@ public class ObdService {
         mOutputStream = null;
     }
 
+    /*
+     * Add a command to the queue.
+     */
     public void queueCommand(String command) {
         //Log.d("Queue", "Adding command: " + command);
         mCmdQueue.add(command);
     }
 
     /*
-     * THREADS
+     * Create a thread to send a series of commands (RPM and Speed) to the car.
      */
     private void startLoopCommands() {
         mLoopProc = true;
@@ -286,8 +310,8 @@ public class ObdService {
                 while (mLoopProc) {
                     try {
                         //Queue new commands.
-                        queueCommand("010D1\r");
-                        queueCommand("010C1\r");
+                        queueCommand("010D1\r");    // Speed
+                        queueCommand("010C1\r");    // RPM
                         Thread.sleep(500);
                     } catch (Exception e){
                         Log.d("Exception: Loop", "Error: " + e.getMessage());
@@ -299,6 +323,9 @@ public class ObdService {
         thread.start();
     }
 
+    /*
+     * Start a thread to process the commands in the queue.
+     */
     private void startQueueProcessor() {
         mQueueProc = true;
         //Set up thread here and have it look for new entries in cmdQueue.  Verify that command is finished.
@@ -310,13 +337,16 @@ public class ObdService {
                 while (mQueueProc) {
                     cmd = null;
                     try {
-                        //check if cmdQueue has any commands queued.
+                        //check if cmdQueue has any commands queued and that the car isn't currently processing a command.
                         if (!mCmdQueue.isEmpty() && !mIsBusy) {
-                            //If so, pop one off and run the command.
                             try {
+                                //Toggle the busy flag to true.
                                 setIsBusy(true);
+
+                                // Pop command off the queue.
                                 cmd = mCmdQueue.poll();
                                 if (cmd != null) {
+                                    //Send command to bluetooth adapter.
                                     write(cmd.getBytes(Charset.forName("US-ASCII")));
                                 }
 
@@ -324,6 +354,7 @@ public class ObdService {
                                 Log.d("OBD", "Error: " + ioe.getMessage());
                             }
                         }
+                        //Sleep for 200 ms
                         Thread.sleep(200);
                     } catch (Exception e) {
                         Log.d("OBD " + e.getCause(), "Error: " + e.getMessage() + " Command: " + cmd);
@@ -335,6 +366,9 @@ public class ObdService {
         thread.start();
     }
 
+    /*
+     * Read response coming back from car data bus.  Piece data together and when finished, call onReceived.
+     */
     private void startReadData() {
         mReadProc = true;
         Thread thread = new Thread(new Runnable() {

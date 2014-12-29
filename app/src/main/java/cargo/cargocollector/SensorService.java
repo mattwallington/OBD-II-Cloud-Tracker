@@ -11,18 +11,18 @@ import org.json.JSONObject;
 
 /**
  * Created by matt on 7/8/14.
+ * Read data from accelerometer.
  */
 public class SensorService implements SensorEventListener {
     private SensorManager mSensorManager = null;
     private Sensor mAccelerometer = null;
-    private float mAccel_x;
-    private float mAccel_y;
-    private float mAccel_z;
-
-    JSONObject mObj;
+    private float mAccel_x, mAccel_y, mAccel_z;
 
     private SocketIOService mServer;
 
+    /*
+     * Constructor.  Start accelerometer service.
+     */
     public SensorService(SensorManager sensorManager, SocketIOService server) {
         mServer = server;
         this.mSensorManager = sensorManager;
@@ -38,14 +38,15 @@ public class SensorService implements SensorEventListener {
         mSensorManager.registerListener(this, mAccelerometer, SensorManager.SENSOR_DELAY_NORMAL);
     }
 
+    /*
+     * Event handler for accelerometer data changing.
+     */
     public void onSensorChanged(SensorEvent event) {
         if (event.sensor.getType() != Sensor.TYPE_ACCELEROMETER)
             return;
         mAccel_x = event.values[0];
         mAccel_y = event.values[1];
         mAccel_z = event.values[2];
-
-        //TODO: Do something here with the accelerometer data.
 
         JSONObject obj = new JSONObject();
 
@@ -57,13 +58,15 @@ public class SensorService implements SensorEventListener {
             Log.d("Sensor", "Exception: " + e.getMessage());
         }
         mServer.sendData(obj);
-
     }
 
     public void onAccuracyChanged(Sensor sensor, int accuracy) {
 
     }
 
+    /*
+     * Stop listening to the accelerometer service.
+     */
     public void cancel() {
         Log.d("Sensor", "Stopping sensor listener.");
         mSensorManager.unregisterListener(this);
