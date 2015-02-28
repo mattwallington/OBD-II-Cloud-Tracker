@@ -44,13 +44,6 @@ public class ObdService {
 
     public boolean mIsConnected = false;
 
-    private static interface Listener {
-        void onConnected();
-        void onReceived(byte[] buffer, int length);
-        void onDisconnected();
-        void onError(Exception e);
-    }
-
     private static final int BUFFER_SIZE = 1024;
 
     private InputStream mInputStream;
@@ -63,7 +56,14 @@ public class ObdService {
 
     private SocketIOService mServer;
 
+    private static interface Listener {
+        void onConnected();
+        void onReceived(byte[] buffer, int length);
+        void onDisconnected();
+        void onError(Exception e);
+    }
 
+    
     /*
      *  Constructor.
      */

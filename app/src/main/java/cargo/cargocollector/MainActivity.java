@@ -95,6 +95,8 @@ public class MainActivity extends Activity {
     protected void onDestroy() {
         Log.d("Activity", "OnDestroy()");
         super.onDestroy();
+
+        mInitiator.unbind();
     }
 
 
