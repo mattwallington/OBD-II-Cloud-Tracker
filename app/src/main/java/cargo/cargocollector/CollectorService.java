@@ -9,19 +9,16 @@ import android.os.Binder;
 import android.os.IBinder;
 import android.util.Log;
 
-import org.json.JSONObject;
-
 public class CollectorService extends Service {
     private final IBinder mBinder = new CollectorBinder();
 
-    private ObdService mObdService = null;
     private LocationService mLocationService = null;
     private SensorService mSensorService = null;
 
     private boolean mIsRunning = false;
 
     /* Socket */
-    private static final String SOCKET_URL = "http://srv.cargo.ai:31337/";
+    /*private static final String SOCKET_URL = "http://srv.cargo.ai:31337/";*/
 
     public CollectorService() {
 
@@ -59,17 +56,31 @@ public class CollectorService extends Service {
         //Set service status.
         mIsRunning = true;
 
+        /*
         //Connect to socket.
         SocketIOService server = new SocketIOService(SOCKET_URL);
+        */
+
+/*
+        String json = "{\"timestamp\":1424765173,\"location\":{\"timestamp\":1424765173,\"lat\":34.4300034,\"lng\":2392030909239},\"engine_temp\":202.1,\"speed\":23.5,\"running\":1,\"mpg\":25}";
+        ZmqClient.connect(json);
+        //ZmqClient.send(json);
+*/
 
         //Activate location tracking service
-        mLocationService = new LocationService((LocationManager) getSystemService(Context.LOCATION_SERVICE), server);
+        mLocationService = new LocationService((LocationManager) getSystemService(Context.LOCATION_SERVICE));
+        mLocationService.start();
 
         //Activate Accelerometer service
-        mSensorService = new SensorService((SensorManager)getSystemService(SENSOR_SERVICE), server);
+        //mSensorService = new SensorService((SensorManager)getSystemService(SENSOR_SERVICE));
 
         //Activate OBD service
-        mObdService = new ObdService(server);
+        //mObdService = new ObdService();
+        ObdService.start();
+
+
+        //Start data aggregator.
+        DataAggregator.start();
 
         //Continue running until we stop the service.
         return START_STICKY;
@@ -96,13 +107,21 @@ public class CollectorService extends Service {
 
         //Destroy OBD exceptions.
         try {
-            mObdService.cancel();
+            ObdService.cancel();
         } catch (Exception obdexcept) {
             Log.d("OBD", "Exception: " + obdexcept.getMessage());
         }
 
+        //Destroy DataAggregator.
+        try {
+            DataAggregator.cancel();
+        } catch (Exception dataaggexcept) {
+            Log.d("DataAgg", "Exception: " + dataaggexcept.getMessage());
+        }
+
         //Set service status
         mIsRunning = false;
+        Log.d("Service", "Destroying Service");
     }
 
     public boolean getIsRunning() {
