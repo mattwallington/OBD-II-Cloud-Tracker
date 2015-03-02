@@ -1,14 +1,9 @@
 package cargo.cargocollector;
 
-import android.app.Activity;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
-import android.app.ActivityManager;
-import android.app.Application;
-import android.content.ComponentName;
-import android.os.IBinder;
 import android.os.IBinder;
 import android.util.Log;
 
@@ -61,18 +56,22 @@ public class ServiceInitiator {
     }
 
     public void bind() {
+        Log.d("Service", "Binding service.");
         mContext.bindService(mIntent, mConnection, Context.BIND_AUTO_CREATE);
+        mIsBound = true;
     }
 
     public void unbind() {
+        Log.d("Service", "Unbinding service.");
         mContext.unbindService(mConnection);
+        mIsBound = false;
     }
 
     private void createServiceConnection() {
         mConnection = new ServiceConnection() {
             public void onServiceConnected(ComponentName className, IBinder service) {
                 mBoundService = ((CollectorService.CollectorBinder) service).getService();
-                Log.d("ServiceBinder", "Service bound");
+                Log.d("ServiceBinder", "Service started");
                 mIsBound = true;
 
                 if (mActivity != null)
@@ -80,8 +79,7 @@ public class ServiceInitiator {
             }
 
             public void onServiceDisconnected(ComponentName className) {
-                Log.d("ServiceBinder", "OnServiceDisconnected()");
-                //mTvStatus.append("Service Unbound.\n");
+                Log.d("ServiceBinder", "Service stopped");
                 mBoundService = null;
                 mIsBound = false;
             }
