@@ -18,7 +18,6 @@ public class LocationService implements LocationListener {
     /*  Location */
     private LocationManager mLocationManager;
     private String mProvider;
-    private SocketIOService mServer;
 
     private static final int MIN_DISTANCE = 1;
     private static final int MIN_TIME = 1000;
@@ -26,17 +25,15 @@ public class LocationService implements LocationListener {
     /*
      * Constructor.  Activate location service.
      */
-    public LocationService(LocationManager locationManager, SocketIOService server) {
+    public LocationService(LocationManager locationManager) {
     //public LocationService(LocationManager locationManager) {
-        mServer = server;
         mLocationManager = locationManager;
-        activateLocation();
     }
 
     /*
      *   Location services
      */
-    private void activateLocation() {
+    public void start() {
         //Find out which provider is best to use.  (GPS or network).
         setBestProvider();
 
@@ -57,30 +54,8 @@ public class LocationService implements LocationListener {
 
     @Override
     public void onLocationChanged(Location location) {
-
-        //JSONify location and send it up to the Socket.IO server.
-        try {
-            Log.d("GPS", "Sending geometry");
-
-            //Create JSON object with coordinates and timestamp.
-            JSONArray latLng = new JSONArray();
-            latLng.put(location.getLatitude());
-            latLng.put(location.getLongitude());
-
-            JSONObject inner = new JSONObject();
-            inner.put("type", "Point");
-            inner.put("coordinates", latLng);
-            inner.put("timestamp", System.currentTimeMillis()/1000);
-
-            JSONObject outer = new JSONObject();
-            outer.put("geometry", inner);
-
-            //Send JSON object.
-            mServer.sendData(outer);
-        }
-        catch (Exception e) {
-            Log.d("Location", e.getMessage());
-        }
+        Data.location = location;
+        Log.d("Location", "Lat: "+location.getLatitude());
     }
 
     @Override
