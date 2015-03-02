@@ -2,30 +2,15 @@ package cargo.cargocollector;
 
 import android.app.Activity;
 
-import android.content.Context;
-import android.content.Intent;
-import android.content.ServiceConnection;
-import android.hardware.SensorManager;
-import android.location.LocationManager;
 import android.os.Bundle;
-import android.os.IBinder;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
-import android.widget.TextView;
-
-import org.json.JSONObject;
-
-import java.util.List;
 
 public class MainActivity extends Activity {
-
-    private TextView mTvStatus;
-
     private ServiceInitiator mInitiator;
-
     private Button mStartButton = null;
     private Button mStopButton = null;
 
@@ -37,7 +22,6 @@ public class MainActivity extends Activity {
 
         mStartButton = (Button) findViewById(R.id.startservice);
         mStopButton = (Button) findViewById(R.id.stopservice);
-        mTvStatus = (TextView) findViewById(R.id.service_status);
 
         //Kick off Android service.
         mInitiator = new ServiceInitiator(this, MainActivity.this);
@@ -78,7 +62,9 @@ public class MainActivity extends Activity {
         super.onResume();
 
         //Bind to background service.
-        mInitiator.bind();
+        if (!mInitiator.isBound())
+            mInitiator.bind();
+
     }
 
     @Override
@@ -87,8 +73,8 @@ public class MainActivity extends Activity {
         super.onPause();
 
         //Unbind service.
-        mInitiator.unbind();
-
+        if (mInitiator.isBound())
+            mInitiator.unbind();
     }
 
     @Override
@@ -96,7 +82,8 @@ public class MainActivity extends Activity {
         Log.d("Activity", "OnDestroy()");
         super.onDestroy();
 
-        mInitiator.unbind();
+        if (mInitiator.isBound())
+            mInitiator.unbind();
     }
 
 
