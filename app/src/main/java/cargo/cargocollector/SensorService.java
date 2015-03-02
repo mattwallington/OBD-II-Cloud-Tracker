@@ -18,13 +18,10 @@ public class SensorService implements SensorEventListener {
     private Sensor mAccelerometer = null;
     private float mAccel_x, mAccel_y, mAccel_z;
 
-    private SocketIOService mServer;
-
     /*
      * Constructor.  Start accelerometer service.
      */
-    public SensorService(SensorManager sensorManager, SocketIOService server) {
-        mServer = server;
+    public SensorService(SensorManager sensorManager) {
         this.mSensorManager = sensorManager;
         activateAccelerometer();
 
@@ -57,7 +54,8 @@ public class SensorService implements SensorEventListener {
         } catch (Exception e) {
             Log.d("Sensor", "Exception: " + e.getMessage());
         }
-        mServer.sendData(obj);
+        // TODO: Send Accel data to Data Aggregator
+
     }
 
     public void onAccuracyChanged(Sensor sensor, int accuracy) {
