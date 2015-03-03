@@ -1,3 +1,4 @@
+/*
 package cargo.cargocollector;
 
 import android.util.Log;
@@ -8,10 +9,6 @@ import com.github.nkzawa.socketio.client.Socket;
 
 import org.json.JSONObject;
 
-/**
- * Created by matt on 7/8/14.
- * Service creates a Socket.io connection to a socket server and handles sending JSON objects.
- */
 public class SocketIOService {
     private Socket mSocket = null;
     private boolean status;
@@ -60,3 +57,4 @@ public class SocketIOService {
         mSocket.emit("data", obj);
     }
 }
+*/
