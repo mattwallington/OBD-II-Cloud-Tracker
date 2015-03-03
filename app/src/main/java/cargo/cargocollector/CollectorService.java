@@ -64,8 +64,7 @@ public class CollectorService extends Service {
 */
 
         //Activate location tracking service
-        m_locationService = new LocationService((LocationManager) getSystemService(Context.LOCATION_SERVICE));
-        m_locationService.start();
+        LocationService.start();
 
         //Activate Accelerometer service
         //m_sensorService = new SensorService((SensorManager)getSystemService(SENSOR_SERVICE));
