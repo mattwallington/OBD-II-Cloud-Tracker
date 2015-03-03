@@ -28,7 +28,6 @@ public class CollectorService extends Service {
 
     @Override
     public IBinder onBind(Intent intent) {
-
         // TODO: Return the communication channel to the service.
         return m_binder;
         //throw new UnsupportedOperationException("Not yet implemented");
@@ -39,6 +38,7 @@ public class CollectorService extends Service {
         super.onCreate();
         //Created
         Log.d("Service", "onCreate()");
+
     }
 
     /*
@@ -52,19 +52,15 @@ public class CollectorService extends Service {
         //Set service status.
         m_isRunning = true;
 
-        /*
-        //Connect to socket.
-        SocketIOService server = new SocketIOService(SOCKET_URL);
-        */
-
 /*
         String json = "{\"timestamp\":1424765173,\"location\":{\"timestamp\":1424765173,\"lat\":34.4300034,\"lng\":2392030909239},\"engine_temp\":202.1,\"speed\":23.5,\"running\":1,\"mpg\":25}";
         ZmqClient.connect(json);
         //ZmqClient.send(json);
 */
-
+        /*
         //Activate location tracking service
-        LocationService.start();
+        m_locationService = new LocationService(intent, this);
+        m_locationService.start();
 
         //Activate Accelerometer service
         //m_sensorService = new SensorService((SensorManager)getSystemService(SENSOR_SERVICE));
@@ -77,6 +73,7 @@ public class CollectorService extends Service {
         //Start data aggregator.
         DataAggregator.start();
 
+        */
         //Continue running until we stop the service.
         return START_STICKY;
     }
@@ -88,7 +85,7 @@ public class CollectorService extends Service {
 
         //Destroy location service.
         try {
-            LocationService.cancel();
+            m_locationService.cancel();
         } catch (Exception locexcept) {
             Log.d("Location", "Exception: " + locexcept.getMessage());
         }
@@ -119,7 +116,7 @@ public class CollectorService extends Service {
         Log.d("Service", "Destroying Service");
     }
 
-    public boolean getIsRunning() {
+    public boolean isRunning() {
         return m_isRunning;
     }
 }
