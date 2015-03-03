@@ -10,9 +10,9 @@ import android.view.View;
 import android.widget.Button;
 
 public class MainActivity extends Activity {
-    private ServiceInitiator mInitiator;
-    private Button mStartButton = null;
-    private Button mStopButton = null;
+    private ServiceInitiator m_initiator;
+    private Button m_startButton = null;
+    private Button m_stopButton = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -20,29 +20,29 @@ public class MainActivity extends Activity {
         Log.d("Activity", "OnCreate()");
         setContentView(R.layout.activity_start);
 
-        mStartButton = (Button) findViewById(R.id.startservice);
-        mStopButton = (Button) findViewById(R.id.stopservice);
+        m_startButton = (Button) findViewById(R.id.startservice);
+        m_stopButton = (Button) findViewById(R.id.stopservice);
 
         //Kick off Android service.
-        mInitiator = new ServiceInitiator(this, MainActivity.this);
-        mInitiator.initiateService();
+        m_initiator = new ServiceInitiator(this, MainActivity.this);
+        m_initiator.initiateService();
 
         //Buttons to start/stop background service.
-        mStartButton.setOnClickListener(new View.OnClickListener() {
+        m_startButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                mInitiator.start();
-                mStartButton.setEnabled(false);
-                mStopButton.setEnabled(true);
+                m_initiator.start();
+                m_startButton.setEnabled(false);
+                m_stopButton.setEnabled(true);
             }
         });
 
-        mStopButton.setOnClickListener(new View.OnClickListener() {
+        m_stopButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                mInitiator.stop();
-                mStartButton.setEnabled(true);
-                mStopButton.setEnabled(false);
+                m_initiator.stop();
+                m_startButton.setEnabled(true);
+                m_stopButton.setEnabled(false);
             }
         });
 
@@ -52,8 +52,8 @@ public class MainActivity extends Activity {
      *  Toggle button enabled.
      */
     public void setButtonStatus(boolean start, boolean stop) {
-        mStartButton.setEnabled(start);
-        mStopButton.setEnabled(stop);
+        m_startButton.setEnabled(start);
+        m_stopButton.setEnabled(stop);
     }
 
     @Override
@@ -62,8 +62,8 @@ public class MainActivity extends Activity {
         super.onResume();
 
         //Bind to background service.
-        if (!mInitiator.isBound())
-            mInitiator.bind();
+        if (!m_initiator.isBound())
+            m_initiator.bind();
 
     }
 
@@ -73,8 +73,8 @@ public class MainActivity extends Activity {
         super.onPause();
 
         //Unbind service.
-        if (mInitiator.isBound())
-            mInitiator.unbind();
+        if (m_initiator.isBound())
+            m_initiator.unbind();
     }
 
     @Override
@@ -82,8 +82,8 @@ public class MainActivity extends Activity {
         Log.d("Activity", "OnDestroy()");
         super.onDestroy();
 
-        if (mInitiator.isBound())
-            mInitiator.unbind();
+        if (m_initiator.isBound())
+            m_initiator.unbind();
     }
 
 
