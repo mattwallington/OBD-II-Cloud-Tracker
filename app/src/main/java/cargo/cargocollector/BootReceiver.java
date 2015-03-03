@@ -8,15 +8,15 @@ import android.content.Intent;
  * Created by matt on 7/16/14.
  */
 public class BootReceiver extends BroadcastReceiver {
-    ServiceInitiator initiator;
+    ServiceInitiator m_initiator;
 
     @Override
     public void onReceive(Context context, Intent intent) {
 
-        initiator = new ServiceInitiator(context);
+        m_initiator = new ServiceInitiator(context);
 
-        initiator.initiateService();
+        m_initiator.initiateService();
 
-        initiator.start();
+        m_initiator.start();
     }
 }
