@@ -3,7 +3,6 @@ package cargo.cargocollector;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
-import android.hardware.SensorListener;
 import android.hardware.SensorManager;
 import android.util.Log;
 
@@ -14,15 +13,15 @@ import org.json.JSONObject;
  * Read data from accelerometer.
  */
 public class SensorService implements SensorEventListener {
-    private SensorManager mSensorManager = null;
-    private Sensor mAccelerometer = null;
-    private float mAccel_x, mAccel_y, mAccel_z;
+    private SensorManager m_sensorManager = null;
+    private Sensor m_accelerometer = null;
+    private float m_accelX, m_accelY, m_accelZ;
 
     /*
      * Constructor.  Start accelerometer service.
      */
     public SensorService(SensorManager sensorManager) {
-        this.mSensorManager = sensorManager;
+        this.m_sensorManager = sensorManager;
         activateAccelerometer();
 
     }
@@ -31,8 +30,8 @@ public class SensorService implements SensorEventListener {
      *   Accelerometer services
      */
     private void activateAccelerometer() {
-        mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
-        mSensorManager.registerListener(this, mAccelerometer, SensorManager.SENSOR_DELAY_NORMAL);
+        m_accelerometer = m_sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+        m_sensorManager.registerListener(this, m_accelerometer, SensorManager.SENSOR_DELAY_NORMAL);
     }
 
     /*
@@ -41,16 +40,16 @@ public class SensorService implements SensorEventListener {
     public void onSensorChanged(SensorEvent event) {
         if (event.sensor.getType() != Sensor.TYPE_ACCELEROMETER)
             return;
-        mAccel_x = event.values[0];
-        mAccel_y = event.values[1];
-        mAccel_z = event.values[2];
+        m_accelX = event.values[0];
+        m_accelY = event.values[1];
+        m_accelZ = event.values[2];
 
         JSONObject obj = new JSONObject();
 
         try {
-            obj.put("ACCEL_X", mAccel_x);
-            obj.put("ACCEL_Y", mAccel_y);
-            obj.put("ACCEL_Z", mAccel_z);
+            obj.put("ACCEL_X", m_accelX);
+            obj.put("ACCEL_Y", m_accelY);
+            obj.put("ACCEL_Z", m_accelZ);
         } catch (Exception e) {
             Log.d("Sensor", "Exception: " + e.getMessage());
         }
@@ -67,7 +66,7 @@ public class SensorService implements SensorEventListener {
      */
     public void cancel() {
         Log.d("Sensor", "Stopping sensor listener.");
-        mSensorManager.unregisterListener(this);
+        m_sensorManager.unregisterListener(this);
     }
 
 }
