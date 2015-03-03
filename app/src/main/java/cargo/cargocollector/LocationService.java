@@ -1,92 +1,132 @@
 package cargo.cargocollector;
 
-import android.location.Criteria;
+import android.app.PendingIntent;
+import android.content.Context;
+import android.content.Intent;
+import android.location.*;
 import android.location.Location;
-import android.location.LocationListener;
-import android.location.LocationManager;
+import android.os.Binder;
 import android.os.Bundle;
+import android.os.IBinder;
 import android.util.Log;
+import android.app.Service;
 
-import org.json.JSONArray;
-import org.json.JSONObject;
+import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.GooglePlayServicesClient;
+import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.common.api.PendingResult;
+import com.google.android.gms.common.api.ResultCallback;
+import com.google.android.gms.common.api.Status;
+import com.google.android.gms.location.LocationListener;
+import com.google.android.gms.location.LocationRequest;
+import com.google.android.gms.location.LocationServices;
 
 /**
  * Created by matt on 7/8/14.
  */
-public class LocationService implements LocationListener {
+public class LocationService extends Service implements GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener, LocationListener {
 
-    /*  Location */
-    private LocationManager mLocationManager;
-    private String mProvider;
+    private final IBinder m_binder = new LocationBinder();
 
-    private static final int MIN_DISTANCE = 1;
-    private static final int MIN_TIME = 1000;
+    private static final int REQUEST_RESOLVE_ERROR = 1001;
+    private static final int UPDATE_INTERVAL = 1000;
+    private static final int FASTEST_INTERVAL = 1000;
 
-    /*
-     * Constructor.  Activate location service.
-     */
-    public LocationService(LocationManager locationManager) {
-    //public LocationService(LocationManager locationManager) {
-        mLocationManager = locationManager;
+    private LocationRequest m_locationRequest;
+    private LocationListener m_locationListener;
+    private GoogleApiClient m_googleApiClient;
+    private Intent m_intent;
+
+    private boolean m_isRunning = false;
+
+    public LocationService() {
+        Log.d("Location", "Location services created.");
+
+        /*
+        m_googleApiClient = new GoogleApiClient.Builder(this)
+                .addConnectionCallbacks(this)
+                .addOnConnectionFailedListener(this)
+                .addApi(LocationServices.API)
+                .build();
+
+        m_locationRequest = LocationRequest.create()
+                .setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY)
+                .setInterval(UPDATE_INTERVAL)
+                .setFastestInterval(FASTEST_INTERVAL);
+        */
+
     }
 
-    /*
-     *   Location services
-     */
+
     public void start() {
-        //Find out which provider is best to use.  (GPS or network).
-        setBestProvider();
+        Log.d("Location", "Location services started.");
+        if (!m_googleApiClient.isConnected())
+            m_googleApiClient.connect();
+    }
 
-        //Get initial location.  May be invalid.
-        Location location = mLocationManager.getLastKnownLocation(mProvider);
 
-        //Initialize location fields.
-        if (location != null) {
-            onLocationChanged(location);
-        } else {
-            Log.d("Location", "location is null");
-        }
+    public void cancel() {
+        Log.d("Location", "Location services disconnected.");
+        if (m_googleApiClient.isConnected())
+            m_googleApiClient.disconnect();
+    }
 
-        //Receive location updates whenever location changes.
-        mLocationManager.requestLocationUpdates(mProvider, MIN_TIME, MIN_DISTANCE, this);
+    @Override
+    public void onConnected(Bundle bundle) {
+        Log.d("Location", "Location services connected.");
+        //TODO: Fix broken logic here.  Need a different service for handling location requests.
+        PendingIntent pendingIntent = PendingIntent.getService(this, 0, m_intent, 0);
+        LocationServices.FusedLocationApi.requestLocationUpdates(m_googleApiClient,m_locationRequest, pendingIntent);
 
+    }
+
+    @Override
+    public void onConnectionSuspended(int i) {
+        Log.d("Location", "Location services connection suspended.  Please reconnect.");
+    }
+
+    @Override
+    public void onConnectionFailed(ConnectionResult connectionResult) {
+        //TODO: Handle errors.
+        Log.d("Location", "Location services connection failed.");
     }
 
     @Override
     public void onLocationChanged(Location location) {
-        Data.location = location;
-        Log.d("Location", "Lat: "+location.getLatitude());
+        Log.d("Location", "Lat: "+Double.toString(location.getLatitude())+" Lng: "+Double.toString(location.getLongitude())+" Timestamp: "+Long.toString(location.getTime()));
+    }
+
+    public class LocationBinder extends Binder {
+        LocationService getService() {
+            return LocationService.this;
+        }
     }
 
     @Override
-    public void onStatusChanged(String provider, int status, Bundle extras) {
-
+    public IBinder onBind(Intent intent) {
+        // TODO: Return the communication channel to the service.
+        return m_binder;
+        //throw new UnsupportedOperationException("Not yet implemented");
     }
 
     @Override
-    public void onProviderEnabled(String provider) {
-        setBestProvider();
+    public void onCreate() {
+        super.onCreate();
+        //Created
+        Log.d("Service", "onCreate()");
     }
+
 
     @Override
-    public void onProviderDisabled(String provider) {
-        setBestProvider();
+    public int onStartCommand(Intent intent, int flags, int startId) {
+        Log.d("Location", "Starting location service!");
+        m_isRunning = true;
+
+
+        return START_STICKY;
     }
 
-    /*
-     * Set location provider based on what's available.  I.E. GPS vs Cell tower triangulation.
-     */
-    private void setBestProvider() {
-        Criteria criteria = new Criteria();
-        mProvider = mLocationManager.getBestProvider(criteria, true);
-        Log.d("Location", "Location Provider: " + mProvider);
-    }
-
-    /*
-     * Stop receiving location updates.
-     */
-    public void cancel() {
-        Log.d("Location", "Cancelling Location service");
-        mLocationManager.removeUpdates(this);
+    public boolean isRunning() {
+        return m_isRunning;
     }
 }
