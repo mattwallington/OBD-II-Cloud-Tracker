@@ -13,75 +13,75 @@ import android.util.Log;
  */
 public class ServiceInitiator {
 
-    private Context mContext;
-    private Intent mIntent;
+    private Context m_context;
+    private Intent m_intent;
 
-    private MainActivity mActivity = null;
+    private MainActivity m_activity = null;
 
-    private ServiceConnection mConnection = null;
-    private CollectorService mBoundService = null;
-    private boolean mIsBound = false;
+    private ServiceConnection m_connection = null;
+    private CollectorService m_boundService = null;
+    private boolean m_isBound = false;
 
 
     public ServiceInitiator(Context context, MainActivity activity) {
-        mContext = context;
-        mActivity = activity;
+        m_context = context;
+        m_activity = activity;
     }
 
     public ServiceInitiator(Context context) {
-        mContext = context;
+        m_context = context;
     }
 
     public void initiateService() {
-        mIntent = new Intent(mContext, CollectorService.class);
+        m_intent = new Intent(m_context, CollectorService.class);
 
         //Create a service connection
         createServiceConnection();
     }
 
     public void start() {
-        mContext.startService(mIntent);
+        m_context.startService(m_intent);
     }
 
     public void stop() {
-        mBoundService.onDestroy();
+        m_boundService.onDestroy();
     }
 
     public boolean isBound() {
-        return mIsBound;
+        return m_isBound;
     }
 
     public boolean isRunning() {
-        return mBoundService.getIsRunning();
+        return m_boundService.getIsRunning();
     }
 
     public void bind() {
         Log.d("Service", "Binding service.");
-        mContext.bindService(mIntent, mConnection, Context.BIND_AUTO_CREATE);
-        mIsBound = true;
+        m_context.bindService(m_intent, m_connection, Context.BIND_AUTO_CREATE);
+        m_isBound = true;
     }
 
     public void unbind() {
         Log.d("Service", "Unbinding service.");
-        mContext.unbindService(mConnection);
-        mIsBound = false;
+        m_context.unbindService(m_connection);
+        m_isBound = false;
     }
 
     private void createServiceConnection() {
-        mConnection = new ServiceConnection() {
+        m_connection = new ServiceConnection() {
             public void onServiceConnected(ComponentName className, IBinder service) {
-                mBoundService = ((CollectorService.CollectorBinder) service).getService();
+                m_boundService = ((CollectorService.CollectorBinder) service).getService();
                 Log.d("ServiceBinder", "Service started");
-                mIsBound = true;
+                m_isBound = true;
 
-                if (mActivity != null)
-                    mActivity.setButtonStatus(!mBoundService.getIsRunning(), mBoundService.getIsRunning());
+                if (m_activity != null)
+                    m_activity.setButtonStatus(!m_boundService.getIsRunning(), m_boundService.getIsRunning());
             }
 
             public void onServiceDisconnected(ComponentName className) {
                 Log.d("ServiceBinder", "Service stopped");
-                mBoundService = null;
-                mIsBound = false;
+                m_boundService = null;
+                m_isBound = false;
             }
         };
     }
