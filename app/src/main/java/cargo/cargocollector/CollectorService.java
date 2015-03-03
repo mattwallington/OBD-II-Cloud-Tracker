@@ -3,22 +3,18 @@ package cargo.cargocollector;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
-import android.hardware.SensorManager;
 import android.location.LocationManager;
 import android.os.Binder;
 import android.os.IBinder;
 import android.util.Log;
 
 public class CollectorService extends Service {
-    private final IBinder mBinder = new CollectorBinder();
+    private final IBinder m_binder = new CollectorBinder();
 
-    private LocationService mLocationService = null;
-    private SensorService mSensorService = null;
+    private LocationService m_locationService = null;
+    private SensorService m_sensorService = null;
 
-    private boolean mIsRunning = false;
-
-    /* Socket */
-    /*private static final String SOCKET_URL = "http://srv.cargo.ai:31337/";*/
+    private boolean m_isRunning = false;
 
     public CollectorService() {
 
@@ -34,7 +30,7 @@ public class CollectorService extends Service {
     public IBinder onBind(Intent intent) {
 
         // TODO: Return the communication channel to the service.
-        return mBinder;
+        return m_binder;
         //throw new UnsupportedOperationException("Not yet implemented");
     }
 
@@ -54,7 +50,7 @@ public class CollectorService extends Service {
         Log.d("Service", "Starting service with start ID: " + startId + ": " + intent);
 
         //Set service status.
-        mIsRunning = true;
+        m_isRunning = true;
 
         /*
         //Connect to socket.
@@ -68,11 +64,11 @@ public class CollectorService extends Service {
 */
 
         //Activate location tracking service
-        mLocationService = new LocationService((LocationManager) getSystemService(Context.LOCATION_SERVICE));
-        mLocationService.start();
+        m_locationService = new LocationService((LocationManager) getSystemService(Context.LOCATION_SERVICE));
+        m_locationService.start();
 
         //Activate Accelerometer service
-        //mSensorService = new SensorService((SensorManager)getSystemService(SENSOR_SERVICE));
+        //m_sensorService = new SensorService((SensorManager)getSystemService(SENSOR_SERVICE));
 
         //Activate OBD service
         //mObdService = new ObdService();
@@ -93,14 +89,14 @@ public class CollectorService extends Service {
 
         //Destroy location service.
         try {
-            mLocationService.cancel();
+            m_locationService.cancel();
         } catch (Exception locexcept) {
             Log.d("Location", "Exception: " + locexcept.getMessage());
         }
 
         //Destroy sensor service.
         try {
-            mSensorService.cancel();
+            m_sensorService.cancel();
         } catch (Exception sensorexcept) {
             Log.d("Sensor", "Exception: " + sensorexcept.getMessage());
         }
@@ -120,11 +116,11 @@ public class CollectorService extends Service {
         }
 
         //Set service status
-        mIsRunning = false;
+        m_isRunning = false;
         Log.d("Service", "Destroying Service");
     }
 
     public boolean getIsRunning() {
-        return mIsRunning;
+        return m_isRunning;
     }
 }
