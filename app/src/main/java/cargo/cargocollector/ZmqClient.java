@@ -5,32 +5,29 @@ import android.util.Log;
 
 import org.jeromq.ZMQ;
 
-import java.io.IOException;
-import java.nio.charset.Charset;
-
 /**
  * Created by mattwallington on 3/1/15.
  */
 public class ZmqClient {
-    private static ZMQ.Context mContext;
-    private static ZMQ.Socket mRequester;
-    private static String mHost;
-    private static String mPort;
+    private static ZMQ.Context m_context;
+    private static ZMQ.Socket m_requester;
+    private static String m_host;
+    private static String m_port;
 
     public static void connect(final String data) {
 
         new Thread(new Runnable() {
             @Override
             public void run() {
-                mContext = ZMQ.context(1);
+                m_context = ZMQ.context(1);
 
-                mRequester = mContext.socket(ZMQ.REQ);
+                m_requester = m_context.socket(ZMQ.REQ);
 
-                mRequester.connect("tcp://" + mHost + ":" + mPort);
+                m_requester.connect("tcp://" + m_host + ":" + m_port);
 
-                mRequester.send(data.getBytes(), 0);
+                m_requester.send(data.getBytes(), 0);
 
-                byte[] reply = mRequester.recv(0);
+                byte[] reply = m_requester.recv(0);
                 Log.d("ZMQ", "Data: " + reply.toString());
             }
         }).start();
@@ -41,22 +38,22 @@ public class ZmqClient {
         new Thread(new Runnable() {
             @Override
             public void run() {
-                mRequester.send(data.getBytes(), 0);
+                m_requester.send(data.getBytes(), 0);
 
-                byte[] reply = mRequester.recv(0);
+                byte[] reply = m_requester.recv(0);
                 Log.d("ZMQ", "Data: " + reply.toString());
             }
         }).start();
     }
 
     public static byte[] receive() {
-        byte[] reply = mRequester.recv(0);
+        byte[] reply = m_requester.recv(0);
         return reply;
     }
 
     public static void setCredentials(String host, String port) {
-        mHost = host;
-        mPort = port;
+        m_host = host;
+        m_port = port;
     }
 
 }
