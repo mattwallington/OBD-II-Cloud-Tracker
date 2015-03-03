@@ -12,20 +12,22 @@ import java.util.TimerTask;
  * Aggregate data from all sensors, compress it, and stream it to the cloud.
  */
 public class DataAggregator {
-    //Member Variables.
-    private static Timer mTimer;
-    private static TimerTask mTimerTask;
+    //Static Variables.
+    private static Timer s_timer;
+    private static TimerTask s_timerTask;
+
+    //Constants
     private static final int TIMER_PERIOD = 5000;
 
     /*
      * Start the timer.
      */
     public static void start() {
-        mTimer = new Timer();
+        s_timer = new Timer();
 
         initTimerTask();
 
-        mTimer.schedule(mTimerTask, 0, TIMER_PERIOD);
+        s_timer.schedule(s_timerTask, 0, TIMER_PERIOD);
     }
 
     public static void cancel() {
@@ -37,14 +39,14 @@ public class DataAggregator {
      * Stop the timer.
      */
     public static void stop() {
-        if (mTimer != null) {
-            mTimer.cancel();
-            mTimer = null;
+        if (s_timer != null) {
+            s_timer.cancel();
+            s_timer = null;
         }
     }
 
     private static void initTimerTask() {
-        mTimerTask = new TimerTask() {
+        s_timerTask = new TimerTask() {
             public void run() {         //This will pop every TIMER_PERIOD
 
                 //Copy data to local instance.
