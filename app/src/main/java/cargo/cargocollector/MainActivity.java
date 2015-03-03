@@ -10,7 +10,7 @@ import android.view.View;
 import android.widget.Button;
 
 public class MainActivity extends Activity {
-    private ServiceInitiator m_initiator;
+    private CollectorServiceInitiator m_collectorServiceInitiator;
     private Button m_startButton = null;
     private Button m_stopButton = null;
 
@@ -23,26 +23,29 @@ public class MainActivity extends Activity {
         m_startButton = (Button) findViewById(R.id.startservice);
         m_stopButton = (Button) findViewById(R.id.stopservice);
 
-        //Kick off Android service.
-        m_initiator = new ServiceInitiator(this, MainActivity.this);
-        m_initiator.initiateService();
+        //Kick off Collector service.
+        m_collectorServiceInitiator = new CollectorServiceInitiator(this, MainActivity.this);
+        m_collectorServiceInitiator.initiateService(CollectorService.class);
+
+        //Set button status
+        setButtonStatus(!m_collectorServiceInitiator.isRunning(), m_collectorServiceInitiator.isRunning());
 
         //Buttons to start/stop background service.
         m_startButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                m_initiator.start();
                 m_startButton.setEnabled(false);
                 m_stopButton.setEnabled(true);
+                m_collectorServiceInitiator.start();
             }
         });
 
         m_stopButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                m_initiator.stop();
                 m_startButton.setEnabled(true);
                 m_stopButton.setEnabled(false);
+                m_collectorServiceInitiator.stop();
             }
         });
 
@@ -62,8 +65,8 @@ public class MainActivity extends Activity {
         super.onResume();
 
         //Bind to background service.
-        if (!m_initiator.isBound())
-            m_initiator.bind();
+        if (!m_collectorServiceInitiator.isBound())
+            m_collectorServiceInitiator.bind();
 
     }
 
@@ -73,8 +76,8 @@ public class MainActivity extends Activity {
         super.onPause();
 
         //Unbind service.
-        if (m_initiator.isBound())
-            m_initiator.unbind();
+        if (m_collectorServiceInitiator.isBound())
+            m_collectorServiceInitiator.unbind();
     }
 
     @Override
@@ -82,8 +85,8 @@ public class MainActivity extends Activity {
         Log.d("Activity", "OnDestroy()");
         super.onDestroy();
 
-        if (m_initiator.isBound())
-            m_initiator.unbind();
+        if (m_collectorServiceInitiator.isBound())
+            m_collectorServiceInitiator.unbind();
     }
 
 
