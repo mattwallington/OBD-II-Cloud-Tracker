@@ -88,7 +88,7 @@ public class CollectorService extends Service {
 
         //Destroy location service.
         try {
-            m_locationService.cancel();
+            LocationService.cancel();
         } catch (Exception locexcept) {
             Log.d("Location", "Exception: " + locexcept.getMessage());
         }
