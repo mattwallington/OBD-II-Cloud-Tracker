@@ -1,5 +1,6 @@
 package cargo.cargocollector;
 
+import android.app.IntentService;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
@@ -17,6 +18,7 @@ import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.common.api.PendingResult;
 import com.google.android.gms.common.api.ResultCallback;
 import com.google.android.gms.common.api.Status;
+import com.google.android.gms.location.FusedLocationProviderApi;
 import com.google.android.gms.location.LocationListener;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
@@ -24,9 +26,9 @@ import com.google.android.gms.location.LocationServices;
 /**
  * Created by matt on 7/8/14.
  */
-public class LocationService extends Service implements GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener, LocationListener {
+public class LocationService implements GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener  {
 
-    private final IBinder m_binder = new LocationBinder();
+    private IBinder m_binder = null;
 
     private static final int REQUEST_RESOLVE_ERROR = 1001;
     private static final int UPDATE_INTERVAL = 1000;
@@ -36,14 +38,14 @@ public class LocationService extends Service implements GoogleApiClient.Connecti
     private LocationListener m_locationListener;
     private GoogleApiClient m_googleApiClient;
     private Intent m_intent;
+    private Context m_context;
 
     private boolean m_isRunning = false;
 
-    public LocationService() {
-        Log.d("Location", "Location services created.");
+    public LocationService(Context context) {
+        m_context = context;
 
-        /*
-        m_googleApiClient = new GoogleApiClient.Builder(this)
+        m_googleApiClient = new GoogleApiClient.Builder(context)
                 .addConnectionCallbacks(this)
                 .addOnConnectionFailedListener(this)
                 .addApi(LocationServices.API)
@@ -53,80 +55,59 @@ public class LocationService extends Service implements GoogleApiClient.Connecti
                 .setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY)
                 .setInterval(UPDATE_INTERVAL)
                 .setFastestInterval(FASTEST_INTERVAL);
-        */
-
     }
 
-
     public void start() {
-        Log.d("Location", "Location services started.");
         if (!m_googleApiClient.isConnected())
             m_googleApiClient.connect();
     }
 
-
-    public void cancel() {
-        Log.d("Location", "Location services disconnected.");
-        if (m_googleApiClient.isConnected())
-            m_googleApiClient.disconnect();
-    }
+    /* Begin ConnectionCallbacks callbacks */
+    //*******************************************************
 
     @Override
     public void onConnected(Bundle bundle) {
-        Log.d("Location", "Location services connected.");
-        //TODO: Fix broken logic here.  Need a different service for handling location requests.
-        PendingIntent pendingIntent = PendingIntent.getService(this, 0, m_intent, 0);
-        LocationServices.FusedLocationApi.requestLocationUpdates(m_googleApiClient,m_locationRequest, pendingIntent);
+        Log.d("Location", "Google API client connected.");
 
+        PendingIntent pendingIntent = PendingIntent.getService(m_context, 0, new Intent(m_context, MyLocationHandler.class), PendingIntent.FLAG_UPDATE_CURRENT);
+        LocationServices.FusedLocationApi.requestLocationUpdates(m_googleApiClient,m_locationRequest, pendingIntent);
     }
 
     @Override
     public void onConnectionSuspended(int i) {
-        Log.d("Location", "Location services connection suspended.  Please reconnect.");
+        Log.d("Location", "Google API client suspended.");
     }
 
+    /* Begin Connection Failed Listener */
+    //********************************************************
     @Override
     public void onConnectionFailed(ConnectionResult connectionResult) {
-        //TODO: Handle errors.
-        Log.d("Location", "Location services connection failed.");
+        Log.d("Location", "Google API client connection failed.");
+    }
+
+    public void cancel() {
+        Log.d("Location", "Cancelling location service.");
+        if(m_googleApiClient.isConnected())
+            m_googleApiClient.disconnect();
+    }
+
+
+}
+
+class MyLocationHandler extends IntentService {
+
+    /**
+     * Creates an IntentService.  Invoked by your subclass's constructor.
+     *
+     * @param name Used to name the worker thread, important only for debugging.
+     */
+    public MyLocationHandler(String name) {
+        super(name);
     }
 
     @Override
-    public void onLocationChanged(Location location) {
-        Log.d("Location", "Lat: "+Double.toString(location.getLatitude())+" Lng: "+Double.toString(location.getLongitude())+" Timestamp: "+Long.toString(location.getTime()));
-    }
-
-    public class LocationBinder extends Binder {
-        LocationService getService() {
-            return LocationService.this;
-        }
-    }
-
-    @Override
-    public IBinder onBind(Intent intent) {
-        // TODO: Return the communication channel to the service.
-        return m_binder;
-        //throw new UnsupportedOperationException("Not yet implemented");
-    }
-
-    @Override
-    public void onCreate() {
-        super.onCreate();
-        //Created
-        Log.d("Service", "onCreate()");
-    }
-
-
-    @Override
-    public int onStartCommand(Intent intent, int flags, int startId) {
-        Log.d("Location", "Starting location service!");
-        m_isRunning = true;
-
-
-        return START_STICKY;
-    }
-
-    public boolean isRunning() {
-        return m_isRunning;
+    protected void onHandleIntent(Intent intent) {
+        final android.location.Location location = intent.getParcelableExtra(FusedLocationProviderApi.KEY_LOCATION_CHANGED);
+        Log.d("Location", "Lat: " + Double.toString(location.getLatitude()) + " Lng: " + Double.toString(location.getLongitude()) + " Timestamp: " + Long.toString(location.getTime()));
     }
 }
