@@ -75,25 +75,7 @@ public class ObdService {
         //Define the s_listener methods.
         setListener();
 
-        try {
-            //Connect the device through the socket.
-            //This will block until it succeeds or throws and exception.
-            s_isClosing = false;
-            Log.d("OBD", "Connecting...");
-            s_socket.connect();
-
-            Log.d("OBD", "Connected");
-            s_listener.onConnected();
-
-        } catch (IOException connExcept) {
-            try {
-                cancel();
-            } catch (IOException e) {
-                    Log.d("OBD", "Exception: " + e.getMessage());
-                }
-            s_listener.onError(connExcept);
-            return;
-        }
+        if (!connect()) return;
 
         //Call read thread.
         startReadData();
@@ -104,6 +86,7 @@ public class ObdService {
         //Throw successive commands at the queue.
         startLoopCommands();
     }
+
 
     /*
      * Bind to bluetooth device.
@@ -147,10 +130,11 @@ public class ObdService {
         //BluetoothDevice device = s_btAdapter.getRemoteDevice("00:04:3E:30:94:66");
 
         try {
+            Log.d("OBD", "Creating RfComm socket.");
             s_socket = device.createRfcommSocketToServiceRecord(MY_UUID);
         }
         catch (Exception e) {
-            Log.d("OBD", "Error: " + e.getMessage());
+            Log.d("OBD", "RfComm Socket Error: " + e.getMessage());
             return false;
         }
         return true;
@@ -160,6 +144,7 @@ public class ObdService {
      * Define listener.  Implements connection, data received, disconnected, and error events.
      */
     private static void setListener() {
+        Log.d("OBD", "Setting listener");
         s_listener = new ObdService.Listener() {
             public void onConnected() {
 
@@ -202,19 +187,58 @@ public class ObdService {
             public void onDisconnected() {
                 Log.d("OBD", "onDisconnected()");
 
+                Log.d("OBD", "Cancelling OBD service");
+                s_isClosing = true;
+                stopLoopCommands();
+                s_queueProc = s_readProc = false;
+                try {
+                    s_socket.close();
+                } catch (Exception e) {
+                    Log.d("OBD", e.getMessage());
+                }
+                s_socket = null;
+
+                s_inputStream = null;
+                s_outputStream = null;
+
                 //Set connection flag.
                 s_isConnected = false;
             }
             public void onError(Exception e) {
-                Log.d("OBD", "Error: " + e.getMessage());
-                try {
-                    cancel();
-                } catch (Exception cancelexcept){
-                    Log.d("OBD", "Exception: " + cancelexcept.getMessage());
-                }
+                Log.d("OBD", "OnError: " + e.getMessage());
+                s_listener.onDisconnected();
+                start();
+                return;
             }
         };
     }
+
+    private static boolean connect() {
+        try {
+            //Connect the device through the socket.
+            //This will block until it succeeds or throws and exception.
+            s_isClosing = false;
+            Log.d("OBD", "Connecting...");
+            s_socket.connect();
+
+            Log.d("OBD", "Connected");
+            s_listener.onConnected();
+            return true;
+        } catch (IOException connExcept) {
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException interrupted) {
+                Log.d("OBD", "Exception: " + interrupted.getMessage());
+                s_listener.onDisconnected();
+                start();
+                return false;
+            }
+            s_listener.onError(connExcept);
+            return false;
+        }
+
+    }
+
 
     /*
      * Read response coming back from OBD.  Piece data together and when finished, call onReceived.
@@ -246,8 +270,13 @@ public class ObdService {
                             s_listener.onReceived(buffer, totLen);
                             totLen =  0;
                         }
+                    } catch (IOException ioe) {
+                        // Out of range of bluetooth.  Try to reconnect
+                        s_listener.onDisconnected();
+                        start();
+                        return;
                     } catch (Exception e) {
-                        Log.d("OBD", "Error: "+e.getMessage());
+                        Log.d("OBD", "Read Data Error: "+e.getMessage());
                     }
                 }
                 Log.d("OBD", "Stopping ReadData");
@@ -316,19 +345,9 @@ public class ObdService {
      * Will cancel an in-progress connection, and close the socket.
      */
     public static void cancel() throws IOException {
-        Log.d("OBD", "Cancelling OBD service");
-        s_isClosing = true;
-        stopLoopCommands();
-        s_queueProc = s_readProc = false;
-        try {
-            s_socket.close();
-        } catch (Exception e) {
-            Log.d("OBD", e.getMessage());
-        }
+
         s_listener.onDisconnected();
 
-        s_inputStream = null;
-        s_outputStream = null;
     }
 
     /*
@@ -352,6 +371,7 @@ public class ObdService {
      * Start a thread to process the commands in the queue.
      */
     private static void startQueueProcessor() {
+        Log.d("OBD", "Inside queue proc");
         s_queueProc = true;
         //Set up thread here and have it look for new entries in s_cmdQueue.  Verify that command is finished.
         new Thread(new Runnable() {
@@ -375,12 +395,12 @@ public class ObdService {
                                     write(cmd.getBytes(Charset.forName("US-ASCII")));
                                 }
                             } catch (IOException ioe) {
-                                Log.d("OBD", "Error: " + ioe.getMessage());
+                                Log.d("OBD", "Queue Proc Error: " + ioe.getMessage());
                             }
                         }
                         Thread.sleep(SEND_CMD_DELAY);
                     } catch (Exception e) {
-                        Log.d("OBD " + e.getCause(), "Error: " + e.getMessage() + " Command: " + cmd);
+                        Log.d("OBD", "Error: " + e.getMessage() + " Command: " + cmd);
                     }
                 }
                 Log.d("OBD", "Stopping QueueProcessor");
@@ -389,6 +409,7 @@ public class ObdService {
     }
 
     private static void startLoopCommands() {
+        Log.d("OBD", "Starting loop commands.");
         s_loopCmdsTimer = new Timer();
         initLoopCmdsTask();
         s_loopCmdsTimer.schedule(s_loopCmdsTask, 0, LOOP_CMD_INTERVAL);
@@ -403,8 +424,10 @@ public class ObdService {
     }
 
     private static void initLoopCmdsTask() {
+        Log.d("OBD", "Timer initialized.");
         s_loopCmdsTask = new TimerTask() {
             public void run() {
+                Log.d("OBD", "Timer fired.");
                 String[] commands = new String[]{ObdCommands.speed,
                                             ObdCommands.engine_temp,
                                             ObdCommands.maf
