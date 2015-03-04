@@ -2,7 +2,12 @@ package cargo.cargocollector;
 
 import android.app.Activity;
 
+import android.content.ComponentName;
+import android.content.Context;
+import android.content.Intent;
+import android.content.ServiceConnection;
 import android.os.Bundle;
+import android.os.IBinder;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -10,25 +15,26 @@ import android.view.View;
 import android.widget.Button;
 
 public class MainActivity extends Activity {
-    private CollectorServiceInitiator m_collectorServiceInitiator;
     private Button m_startButton = null;
     private Button m_stopButton = null;
+
+    private Context m_context = null;
+    private ServiceConnection m_connection = null;
+    private CollectorService m_boundService = null;
+    private boolean m_isBound = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        m_context = this;
         Log.d("Activity", "OnCreate()");
         setContentView(R.layout.activity_start);
 
         m_startButton = (Button) findViewById(R.id.startservice);
         m_stopButton = (Button) findViewById(R.id.stopservice);
 
-        //Kick off Collector service.
-        m_collectorServiceInitiator = new CollectorServiceInitiator(this, MainActivity.this);
-        m_collectorServiceInitiator.initiateService(CollectorService.class);
-
-        //Set button status
-        setButtonStatus(!m_collectorServiceInitiator.isRunning(), m_collectorServiceInitiator.isRunning());
+        initiateCollectorService();
 
         //Buttons to start/stop background service.
         m_startButton.setOnClickListener(new View.OnClickListener() {
@@ -36,7 +42,7 @@ public class MainActivity extends Activity {
             public void onClick(View v) {
                 m_startButton.setEnabled(false);
                 m_stopButton.setEnabled(true);
-                m_collectorServiceInitiator.start();
+                startCollectorService();
             }
         });
 
@@ -45,10 +51,38 @@ public class MainActivity extends Activity {
             public void onClick(View v) {
                 m_startButton.setEnabled(true);
                 m_stopButton.setEnabled(false);
-                m_collectorServiceInitiator.stop();
+                m_boundService.onDestroy();
             }
         });
 
+    }
+
+    private void initiateCollectorService() {
+        m_connection = new ServiceConnection() {
+            public void onServiceConnected(ComponentName className, IBinder service) {
+                m_boundService = ((CollectorService.CollectorBinder) service).getService();
+
+                Log.d("CollectorService", "Service connected." + className.toString());
+                m_isBound = true;
+
+                //Set button status
+                setButtonStatus(!m_boundService.isRunning(), m_boundService.isRunning());
+            }
+
+            public void onServiceDisconnected(ComponentName className) {
+                Log.d("CollectorService", "Service disconnected");
+                m_boundService = null;
+                m_isBound = false;
+
+                //Set button status
+                setButtonStatus(!m_boundService.isRunning(), m_boundService.isRunning());
+            }
+        };
+    }
+
+    private void startCollectorService() {
+        Log.d("CollectorService", "Starting CollectorService.");
+        startService(new Intent(m_context, CollectorService.class));
     }
 
     /*
@@ -65,8 +99,12 @@ public class MainActivity extends Activity {
         super.onResume();
 
         //Bind to background service.
-        if (!m_collectorServiceInitiator.isBound())
-            m_collectorServiceInitiator.bind();
+        if (!m_isBound) {
+            bindService(new Intent(m_context, CollectorService.class), m_connection, Context.BIND_AUTO_CREATE);
+            m_isBound = true;
+            Log.d("CollectorService", "CollectorService bound.");
+        }
+
 
     }
 
@@ -76,8 +114,12 @@ public class MainActivity extends Activity {
         super.onPause();
 
         //Unbind service.
-        if (m_collectorServiceInitiator.isBound())
-            m_collectorServiceInitiator.unbind();
+        if (m_isBound) {
+            unbindService(m_connection);
+            m_isBound = false;
+            Log.d("CollectorService", "CollectorService unbound.");
+        }
+
     }
 
     @Override
@@ -85,8 +127,11 @@ public class MainActivity extends Activity {
         Log.d("Activity", "OnDestroy()");
         super.onDestroy();
 
-        if (m_collectorServiceInitiator.isBound())
-            m_collectorServiceInitiator.unbind();
+        if (m_isBound) {
+            m_boundService.onDestroy();
+            Log.d("CollectorService", "Calling CollectorService.onDestroy()");
+        }
+
     }
 
 
