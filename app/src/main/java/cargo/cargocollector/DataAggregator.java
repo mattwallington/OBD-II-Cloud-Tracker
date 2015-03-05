@@ -2,9 +2,10 @@ package cargo.cargocollector;
 
 import android.util.Log;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import java.util.Timer;
 import java.util.TimerTask;
-
 
 //Timestamp = System.currentTimeMillis()/1000
 
@@ -15,6 +16,8 @@ public class DataAggregator {
     //Static Variables.
     private static Timer s_timer;
     private static TimerTask s_timerTask;
+
+    private static ObjectMapper mapper = new ObjectMapper();
 
     //Constants
     private static final int TIMER_PERIOD = 5000;
@@ -54,7 +57,12 @@ public class DataAggregator {
                 Log.d("Aggregator", "DataObj: " + data.toString());
 
                 //Generate JSON (Add timestamp)
-
+                try {
+                    String jsonData = mapper.writeValueAsString(data);
+                    Log.d("JSON", jsonData);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
 
                 //ZIP JSON
 
@@ -74,26 +82,26 @@ class DataObj {       //Copy of data while processing.
 
     public DataObj() {
 
-        if (Data.location != null)
+        if (Snapshot.location != null)
             location = getLocation();
 
-        if (Data.speed != null)
-            speed = convertToMiles(Data.speed);     //convert to MPH
+        if (Snapshot.speed != null)
+            speed = convertToMiles(Snapshot.speed);     //convert to MPH
 
-        if (Data.engine_temp != null)
-            engine_temp = convertToFahrenheit(Data.engine_temp);
+        if (Snapshot.engine_temp != null)
+            engine_temp = convertToFahrenheit(Snapshot.engine_temp);
 
-        if (Data.maf != null && Data.speed != null)
-            mpg = getMpg(Data.maf, Data.speed);
+        if (Snapshot.maf != null && Snapshot.speed != null)
+            mpg = getMpg(Snapshot.maf, Snapshot.speed);
 
         clearData();
     }
 
     private Location getLocation(){
         Location loc = new Location();
-        loc.timestamp = Data.location.getTime();
-        loc.lat = Data.location.getLatitude();
-        loc.lng = Data.location.getLongitude();
+        loc.timestamp = Snapshot.location.getTime();
+        loc.lat = Snapshot.location.getLatitude();
+        loc.lng = Snapshot.location.getLongitude();
         return loc;
     }
 
@@ -111,10 +119,10 @@ class DataObj {       //Copy of data while processing.
     }
 
     private void clearData() {
-        Data.location = null;
-        Data.speed = null;
-        Data.engine_temp = null;
-        Data.maf = null;
+        Snapshot.location = null;
+        Snapshot.speed = null;
+        Snapshot.engine_temp = null;
+        Snapshot.maf = null;
     }
 
     @Override
