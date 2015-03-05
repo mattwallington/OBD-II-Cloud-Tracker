@@ -6,7 +6,7 @@ Cargo Collector Service.  Android service that interfaces with car via a standar
 Data points are gathered from the car and various sensors on the mobile phone on an interval and/or as changes occur.  These data points are marshalled to JSON, compressed, and sent to an attached ZeroMQ server on a set interval.
 
 Data points
-___________
+-----------
   ```json
   {
       "location": {
