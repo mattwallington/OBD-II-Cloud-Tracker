@@ -14,6 +14,10 @@ public class CollectorService extends Service {
     private LocationService m_locationService = null;
     private SensorService m_sensorService = null;
 
+    private ObdService m_obdService = null;
+
+    private Context m_context = null;
+
     private boolean m_isRunning = false;
 
     public class CollectorBinder extends Binder {
@@ -30,6 +34,7 @@ public class CollectorService extends Service {
     @Override
     public void onCreate() {
         Log.d("CollectorService", "CollectorService created.");
+        m_context = this;
     }
 
     /*
@@ -52,7 +57,8 @@ public class CollectorService extends Service {
         //m_sensorService = new SensorService((SensorManager)getSystemService(SENSOR_SERVICE));
 
         //Activate OBD service
-        ObdService.start();
+        m_obdService = new ObdService(m_context);
+        m_obdService.start();
 
 
         //Start data aggregator.
@@ -87,7 +93,7 @@ public class CollectorService extends Service {
 
         //Destroy OBD exceptions.
         try {
-            ObdService.cancel();
+            m_obdService.stop();
         } catch (Exception e) {
             Log.d("OBD", "Exception: onDestroy(): " + e.getMessage());
         }
