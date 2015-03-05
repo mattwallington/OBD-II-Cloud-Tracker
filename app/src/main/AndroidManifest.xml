@@ -35,6 +35,18 @@
             android:enabled="true"
             android:exported="true" >
         </service>
+
+        <receiver android:name=".BluetoothReceiver" >
+            <intent-filter>
+                <action android:name="android.bluetooth.device.action.ACL_CONNECTED" />
+                <action android:name="android.bluetooth.device.action.ACL_DISCONNECTED" />
+                <action android:name="android.bluetooth.device.action.ACL_DISCONNECT_REQUESTED" />
+                <action android:name="android.bluetooth.device.action.BOND_STATE_CHANGED" />
+                <action android:name="android.bluetooth.device.action.FOUND" />
+                <action android:name="android.bluetooth.device.action.UUID" />
+
+            </intent-filter>
+        </receiver>
     </application>
 
 </manifest>
