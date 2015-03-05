@@ -3,449 +3,385 @@ package cargo.cargocollector;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothSocket;
+import android.content.Context;
 import android.util.Log;
 
-import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.charset.Charset;
+import java.io.UnsupportedEncodingException;
 import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.Queue;
 import java.util.Set;
-import java.util.Timer;
-import java.util.TimerTask;
 import java.util.UUID;
 
 /**
- * Created by matt on 6/18/14.
- * Connect to a bluetooth OBD2 reader and pull PIDs on a frequency.
+ * Created by mattwallington on 3/5/15.
  */
 public class ObdService {
-    /*
-     * Constants
+
+    private static final String TAG = "OBDService";
+    private static final UUID DEVICE_UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
+
+    // Member fields
+    private final BluetoothAdapter mAdapter;
+
+    private ConnectThread mConnectThread;
+    private ConnectedThread mConnectedThread;
+
+    private int mState;
+    private Context mContext;
+    private BluetoothDevice mDevice;
+
+    // Constants that indicate the current connection state
+    public static final int STATE_NONE = 0;       // we're doing nothing
+    public static final int STATE_CONNECTING = 1; // now initiating an outgoing connection
+    public static final int STATE_CONNECTED = 2;  // now connected to a remote device
+
+    /**
+     * Constructor.
+     *
+     * @param context The UI Activity Context
      */
+    public ObdService(Context context) {
+        mAdapter = BluetoothAdapter.getDefaultAdapter();
+        mState = STATE_NONE;
+        mContext = context;
 
-    private static final int BUFFER_SIZE = 1024;
-    private static final int SEND_CMD_DELAY = 200;  //in ms
-    private static final int LOOP_CMD_INTERVAL = 1000;  //in ms
-    private static final UUID MY_UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
-
-    /*
-     *  Member Vars
-     */
-    private static Listener s_listener;
-
-    private static boolean s_isBusy = false;
-    private static Queue<String> s_cmdQueue;
-
-    private static BluetoothAdapter s_btAdapter = null;
-
-    private static BluetoothSocket s_socket = null;
-
-    private static boolean s_queueProc = false;
-    private static boolean s_readProc = false;
-
-    public static boolean s_isConnected = false;
-    private static InputStream s_inputStream;
-    private static OutputStream s_outputStream;
-
-    private static boolean s_isClosing;
-
-    private static Timer s_loopCmdsTimer;
-    private static TimerTask s_loopCmdsTask;
-
-    private static interface Listener {
-        void onConnected();
-        void onReceived(byte[] buffer, int length);
-        void onDisconnected();
-        void onError(Exception e);
-    }
-
-    /*
-     *  Constructor.
-     */
-    public static void start() {
-        s_cmdQueue = new LinkedList<String>();
-
-        //Set bluetooth device and create socket.
-        if (!createSocket()) return;
-
-        //Define the s_listener methods.
-        setListener();
-
-        if (!connect()) return;
-
-        //Call read thread.
-        startReadData();
-
-        //Create queue thread to send commands to the car on an interval to not overload the car's data bus.
-        startQueueProcessor();
-
-        //Throw successive commands at the queue.
-        startLoopCommands();
-    }
-
-
-    /*
-     * Bind to bluetooth device.
-     */
-    private static boolean createSocket() {
-        try {
-            s_btAdapter = BluetoothAdapter.getDefaultAdapter();
-        } catch (Exception e) {
-            Log.d("OBD", "Exception: " + e.getMessage());
-            return false;
-        }
-
-        if (s_btAdapter == null) {
-            //Couldn't get adapter.
-            Log.d("OBD", "Couldn't attach to bluetooth adapter.");
-            return false;
-        }
-
-        try {
-            if (!s_btAdapter.isEnabled()) {
-                Log.d("OBD", "Bluetooth is not enabled");
-                return false;
-            }
-        } catch (Exception e) {
-            Log.d("OBD", "Exception: "+ e.getMessage());
-        }
-
+        //Select device.
         Set<BluetoothDevice> pairedDevices;
-        pairedDevices = s_btAdapter.getBondedDevices();
+        pairedDevices = mAdapter.getBondedDevices();
 
-        BluetoothDevice device = null;
-        for (Iterator<BluetoothDevice> iter = pairedDevices.iterator(); iter.hasNext();) {
-            BluetoothDevice d = iter.next();
-            Log.d("OBD", d.getName() + ": " + d.getAddress());
-            if (d.getName().contains("OBDLink")) {
-                device = d;
+        for (Iterator<BluetoothDevice> iter = pairedDevices.iterator(); iter.hasNext(); ){
+            BluetoothDevice tmp = iter.next();
+            if (tmp.getName().contains("OBDLink")) {
+                mDevice = tmp;
             }
         }
-
-        //BT Device: "OBDLink MX" 00:04:3E:30:94:66
-        //BluetoothDevice device = s_btAdapter.getRemoteDevice("00:04:3E:30:94:66");
-
-        try {
-            Log.d("OBD", "Creating RfComm socket.");
-            s_socket = device.createRfcommSocketToServiceRecord(MY_UUID);
-        }
-        catch (Exception e) {
-            Log.d("OBD", "RfComm Socket Error: " + e.getMessage());
-            return false;
-        }
-        return true;
     }
 
-    /*
-     * Define listener.  Implements connection, data received, disconnected, and error events.
+    /**
+     * Get the current state of the connection.
      */
-    private static void setListener() {
-        Log.d("OBD", "Setting listener");
-        s_listener = new ObdService.Listener() {
-            public void onConnected() {
+    public synchronized int getState() { return mState; }
 
-                try{
-                    s_inputStream = s_socket.getInputStream();
-                    s_outputStream = new BufferedOutputStream(s_socket.getOutputStream());
-
-                } catch (IOException e) {
-                    if (s_isClosing)
-                        return;
-
-                    s_listener.onError(e);
-                    throw new RuntimeException(e);
-                }
-
-                Log.d("OBD", "onConnected() inside");
-
-                //Initialize device.
-                try {
-                    queueCommands(new String[]{"ATZ","ATE0","ATL1","ATH0","ATS0"});
-
-                    //Set connection flag.
-                    s_isConnected = true;
-                } catch (Exception e) {
-                    Log.d("OBD", "QueueCommands Error: " + e.getMessage());
-                }
-            }
-            public void onReceived(byte[] buffer, int length) {
-
-                String data = null;
-                try {
-                    setIsBusy(false);
-                    if (buffer == null) Log.d("OBD", "Buffer null");
-                    data = new String(buffer, "US-ASCII").trim();
-                    processData(data);
-                } catch (Exception e) {
-                    Log.d("Exception", "Error: " + e.getMessage() + " Command: " + data);
-                }
-            }
-            public void onDisconnected() {
-                Log.d("OBD", "onDisconnected()");
-
-                Log.d("OBD", "Cancelling OBD service");
-                s_isClosing = true;
-                stopLoopCommands();
-                s_queueProc = s_readProc = false;
-                try {
-                    s_socket.close();
-                } catch (Exception e) {
-                    Log.d("OBD", e.getMessage());
-                }
-                s_socket = null;
-
-                s_inputStream = null;
-                s_outputStream = null;
-
-                //Set connection flag.
-                s_isConnected = false;
-            }
-            public void onError(Exception e) {
-                Log.d("OBD", "OnError: " + e.getMessage());
-                s_listener.onDisconnected();
-                start();
-                return;
-            }
-        };
+    public synchronized void setState(int state) {
+        Log.d(TAG, "setState() " + mState + " -> " + state);
+        mState = state;
     }
 
-    private static boolean connect() {
-        try {
-            //Connect the device through the socket.
-            //This will block until it succeeds or throws and exception.
-            s_isClosing = false;
-            Log.d("OBD", "Connecting...");
-            s_socket.connect();
+    /**
+     * Start the OBD service.  Connect to the Bluetooth Device.
+     */
+    public synchronized void start() {
+        Log.d(TAG, "Start()");
 
-            Log.d("OBD", "Connected");
-            s_listener.onConnected();
-            return true;
-        } catch (IOException connExcept) {
-            try {
-                Thread.sleep(1000);
-            } catch (InterruptedException interrupted) {
-                Log.d("OBD", "Exception: " + interrupted.getMessage());
-                s_listener.onDisconnected();
-                start();
-                return false;
-            }
-            s_listener.onError(connExcept);
-            return false;
+        //Cancel any connect threads.
+        if (mConnectThread != null) {
+            mConnectThread.cancel();
+            mConnectThread = null;
         }
 
+        //Cancel any connected threads.
+        if (mConnectedThread != null) {
+            mConnectedThread.cancel();
+            mConnectedThread = null;
+        }
+
+        //Start connect thread.
+        if (mConnectThread == null) {
+            mConnectThread = new ConnectThread();
+            mConnectThread.start();
+        }
+        setState(STATE_CONNECTING);
     }
 
-
-    /*
-     * Read response coming back from OBD.  Piece data together and when finished, call onReceived.
+    /**
+     * Start the ConnectedThread to begin managing the Bluetooth Connection.
+     *
+     * @param socket The BluetoothSocket on which the connection was made.
      */
-    private static void startReadData() {
-        s_readProc = true;
-        Thread thread = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                Log.d("OBD", "Started readData");
+    public synchronized void connected(BluetoothSocket socket) {
+        Log.d(TAG, "connected()");
 
-                int curLen = 0;
-                int totLen = 0;
+        //Cancel the thread that completed the connection.
+        if (mConnectThread != null) {
+            mConnectThread.cancel();
+            mConnectThread = null;
+        }
 
-                //Keep listening to the inputstream until an exception occurs.
-                while(s_readProc) {
-                    try {
-                        byte[] buffer = new byte[BUFFER_SIZE];
-                        //Read from the inputstream
-                        curLen = s_inputStream.read(buffer, totLen, buffer.length - totLen);
-                        if (curLen > 0) {
-                            //still reading
-                            totLen += curLen;
-                        }
+        //Cancel any thread currently running a connection.
+        if (mConnectedThread != null) {
+            mConnectedThread.cancel();
+            mConnectedThread = null;
+        }
 
-                        //check if reading is done.
-                        if (totLen > 0) {
-                            //reading finished.
-                            s_listener.onReceived(buffer, totLen);
-                            totLen =  0;
-                        }
-                    } catch (IOException ioe) {
-                        // Out of range of bluetooth.  Try to reconnect
-                        s_listener.onDisconnected();
-                        start();
-                        return;
-                    } catch (Exception e) {
-                        Log.d("OBD", "Read Data Error: "+e.getMessage());
-                    }
-                }
-                Log.d("OBD", "Stopping ReadData");
-            }
-        });
+        //Start the thread to manage the connection and perform transmissions.
+        mConnectedThread = new ConnectedThread(socket);
+        mConnectedThread.start();
+
+        setState(STATE_CONNECTED);
+    }
+
+    /**
+     * Stop all threads.
+     */
+    public synchronized void stop() {
+        Log.d(TAG, "stop()");
+
+        if (mConnectThread != null) {
+            mConnectThread.cancel();
+            mConnectThread = null;
+        }
+
+        if (mConnectedThread != null) {
+            mConnectedThread.cancel();
+            mConnectedThread = null;
+        }
+
+        setState(STATE_NONE);
+    }
+
+    /**
+     * Write to the ConnectedThread in an unsychronized manner.
+     *
+     * @param out The bytes to write.
+     * @see ConnectedThread#write(byte[])
+     */
+    public void write(byte[] out) {
+        ConnectedThread r;
+        synchronized (this) {
+            if (mState != STATE_CONNECTED) return;
+            r = mConnectedThread;
+        }
+        //Perform the write unsynchronized.
+        r.write(out);
+    }
+
+    /**
+     * Handle failed socket connection.  Restart the service to attempt reconnection.
+     */
+    private void connectionFailed() {
+        //Start the service over to attempt to connect again.
+        ObdService.this.start();
+    }
+
+    /**
+     * Handle lost socket connection.  Restart the service to attempt reconnection.
+     */
+    private void connectionLost() {
+        Log.d(TAG, "connectionLost()");
+        //Start the service over to attempt to connect again.
+        ObdService.this.start();
+    }
+
+    /**
+     * Process data coming from device.
+     * @param data  Bytes from device.
+     * @param length Length of bytes read from device.
+     */
+    public synchronized void processData(byte[] data, int length) {
+        Log.d(TAG, "processData()");
+
+        //Start thread to process data.
+        ProcessDataThread thread = new ProcessDataThread(data, length);
         thread.start();
     }
 
-    /*
-     * Parse data to process command responses.
-     */
-    private static void processData(String data) {
-        if (data.length() > 5) {
-            //Log.d("OBD", "Data: "+data);
-            String strippedData = data.replaceAll("[^0-9A-F]" ,"");
-            //Log.d("OBD", "Stripped: "+strippedData);
-            String command = strippedData.substring(0,4);
-            String value = strippedData.substring(4);
-            //Log.d("OBD", "Command: " + command);
-            switch(command){
-                case ObdCommands.rpm_resp:
-                    if (value.length() == 4) {
-                        int rpm = Integer.parseInt(value, 16) / 4;
-                        //Log.d("OBD", "RPM: "+Integer.toString(rpm));
-                    }
-                    break;
-                case ObdCommands.speed_resp:
-                    if (value.length() == 2) {
-                        int speed = Integer.parseInt(value, 16);
-                        Data.speed = (float)speed;
-                        //Log.d("OBD", "Speed: "+Float.toString(Data.speed));
-                    }
-                    break;
-                case ObdCommands.maf_resp:
-                    if (value.length() == 4) {
-                        Data.maf = (float)(Integer.parseInt(value, 16)) / 100;
-                        //Log.d("OBD", "MAF: "+Float.toString(Data.maf));
-                    }
-                    break;
-                case ObdCommands.engine_temp_resp:
-                    if (value.length() == 2) {
-                        Data.engine_temp = (float)(Integer.parseInt(value,16) - 40);
-                        //Log.d("OBD", "Engine Temp: "+Float.toString(Data.engine_temp));
-                    }
+
+    // Thread classes.
+    private class ConnectThread extends Thread {
+        private final BluetoothSocket mmSocket;
+
+        public ConnectThread() {
+            BluetoothSocket tmp = null;
+
+            try {
+                tmp = mDevice.createRfcommSocketToServiceRecord(DEVICE_UUID);
+            } catch (IOException e) {
+                Log.e(TAG, "CreateRfcomm Failed.", e);
             }
+            mmSocket = tmp;
         }
-    }
 
-    // Flag for blocking sending commands to the car while current command is processing.
-    private static void setIsBusy(boolean status) {
-        s_isBusy = status;
-    }
+        public void run() {
+            Log.i(TAG, "BEGIN mConnectThread.");
 
-    /*
-     * Send serial data to the bluetooth device.
-     */
-    public static void write(byte[] bytes) throws IOException {
-        if (s_outputStream == null) {
-            throw new IllegalStateException("Wait connection to be opened");
-        }
-        s_outputStream.write(bytes);
-        s_outputStream.flush();
-    }
-
-    /*
-     * Will cancel an in-progress connection, and close the socket.
-     */
-    public static void cancel() throws IOException {
-
-        s_listener.onDisconnected();
-
-    }
-
-    /*
-     * Add an array of commands to the queue.
-     */
-    public static void queueCommands(String[] commands) {
-        //Log.d("Queue", "Adding command: " + command);
-        for (String cmd: commands) {
-            queueCommand(cmd);
-        }
-    }
-
-    /*
-     * Add a single command to the queue.
-     */
-    public static void queueCommand(String cmd) {
-        s_cmdQueue.add(cmd + "\r");
-    }
-
-    /*
-     * Start a thread to process the commands in the queue.
-     */
-    private static void startQueueProcessor() {
-        Log.d("OBD", "Inside queue proc");
-        s_queueProc = true;
-        //Set up thread here and have it look for new entries in s_cmdQueue.  Verify that command is finished.
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                Log.d("OBD", "Started Queue Processor.");
-                String cmd;
-                while (s_queueProc) {
-                    cmd = null;
-                    try {
-                        //check if s_cmdQueue has any commands queued and that the car isn't currently processing a command.
-                        if (!s_cmdQueue.isEmpty() && !s_isBusy) {
-                            try {
-                                //Toggle the busy flag to true.
-                                setIsBusy(true);
-
-                                // Pop command off the queue.
-                                cmd = s_cmdQueue.poll();
-                                if (cmd != null) {
-                                    //Send command to bluetooth adapter.
-                                    write(cmd.getBytes(Charset.forName("US-ASCII")));
-                                }
-                            } catch (IOException ioe) {
-                                Log.d("OBD", "Queue Proc Error: " + ioe.getMessage());
-                            }
-                        }
-                        Thread.sleep(SEND_CMD_DELAY);
-                    } catch (Exception e) {
-                        Log.d("OBD", "Error: " + e.getMessage() + " Command: " + cmd);
-                    }
+            try {
+                mmSocket.connect();
+            } catch (IOException e) {
+                try {
+                    mmSocket.close();
+                } catch (IOException e2) {
+                    Log.e(TAG, "unable to close() socket during connection failure", e2);
                 }
-                Log.d("OBD", "Stopping QueueProcessor");
+                connectionFailed();
+                return;
             }
-        }).start();
-    }
 
-    private static void startLoopCommands() {
-        Log.d("OBD", "Starting loop commands.");
-        s_loopCmdsTimer = new Timer();
-        initLoopCmdsTask();
-        s_loopCmdsTimer.schedule(s_loopCmdsTask, 0, LOOP_CMD_INTERVAL);
-    }
+            synchronized (ObdService.this) {
+                mConnectThread = null;
+            }
 
-    private static void stopLoopCommands() {
-        Log.d("OBD", "Stopping Loop Commands");
-        if (s_loopCmdsTimer != null) {
-            s_loopCmdsTimer.cancel();
-            s_loopCmdsTimer = null;
+            //Start the connected thread.
+            connected(mmSocket);
+        }
+
+        public void cancel() {
+            try {
+                mmSocket.close();
+            } catch (IOException e) {
+                Log.e(TAG, "close() of connect socket failed.", e);
+            }
         }
     }
 
-    private static void initLoopCmdsTask() {
-        Log.d("OBD", "Timer initialized.");
-        s_loopCmdsTask = new TimerTask() {
-            public void run() {
-                Log.d("OBD", "Timer fired.");
-                String[] commands = new String[]{ObdCommands.speed,
-                                            ObdCommands.engine_temp,
-                                            ObdCommands.maf
-                    };
-                queueCommands(commands);
+    private class ConnectedThread extends Thread {
+        private final BluetoothSocket mmSocket;
+        private final InputStream mmInStream;
+        private final OutputStream mmOutStream;
+
+        private boolean mmKeepRunning;
+
+
+        public ConnectedThread(BluetoothSocket socket) {
+            Log.d(TAG, "create ConnectedThread");
+            mmSocket = socket;
+            InputStream tmpIn = null;
+            OutputStream tmpOut = null;
+            mmKeepRunning = true;
+
+            //Get the input and output streams from the socket.
+            try {
+                tmpIn = socket.getInputStream();
+                tmpOut = socket.getOutputStream();
+            } catch (IOException e) {
+                Log.e(TAG, "tmp sockets not created.", e);
             }
-        };
+
+            mmInStream = tmpIn;
+            mmOutStream = tmpOut;
+        }
+
+        public void run() {
+            Log.i(TAG, "BEGIN mConnectedThread");
+            byte[] buffer = new byte[1024];
+            int bytes;
+
+            // Continue listening to the InputStream while connected.
+            while (mmKeepRunning) {
+                try {
+                    // Read from the InputStream
+                    bytes = mmInStream.read(buffer);
+
+                    // Start a new thread for processing data.
+                    synchronized (this) {
+                        processData(buffer, bytes);
+                    }
+                } catch (IOException e) {
+                    Log.e(TAG, "disconnected", e);
+                    if (mmKeepRunning)
+                        connectionLost();
+                    return;
+                }
+            }
+            Log.i(TAG, "END mConnectedThread");
+        }
+
+        /**
+         * Write to the connected OutStream.
+         *
+         * @param buffer The bytes to write.
+         */
+        public void write(byte[] buffer) {
+            try {
+                mmOutStream.write(buffer);
+            } catch (IOException e) {
+                Log.e(TAG, "Exception during write", e);
+            }
+        }
+
+        /**
+         * Close the socket
+         */
+        public void cancel() {
+            try {
+                mmKeepRunning = false;
+                mmSocket.close();
+            } catch (IOException e) {
+                Log.e(TAG, "close() of connected socket failed", e);
+            }
+        }
+
     }
-}
 
-class ObdCommands {
-    public static final String speed = "010D";
-    public static final String rpm = "010C";
-    public static final String engine_temp = "0105";
-    public static final String maf = "0110";
+    private class ProcessDataThread extends Thread {
+        private byte[] mmData;
+        private int mmLength;
 
-    public static final String speed_resp = "410D";
-    public static final String rpm_resp = "410C";
-    public static final String engine_temp_resp = "4105";
-    public static final String maf_resp = "4110";
+        public ProcessDataThread(byte[] data, int length) {
+            Log.d(TAG, "create ProcessDataThread");
+            mmData = data;
+            mmLength = length;
+        }
+
+        public void run() {
+            Log.i(TAG, "BEGIN ProcessDataThread");
+
+            String strData = null;
+            try {
+                strData = new String(mmData, "US-ASCII").trim();
+            } catch (UnsupportedEncodingException e) {
+                Log.e(TAG, "Exception during conversion from byte[] to string.", e);
+                return;
+            }
+
+            if (strData.length() > 5) {
+                //Log.d(TAG, "Data: "+data);
+                String strippedData = strData.replaceAll("[^0-9A-F]" ,"");
+                //Log.d(TAG, "Stripped: "+strippedData);
+                String command = strippedData.substring(0,4);
+                String value = strippedData.substring(4);
+                //Log.d(TAG, "Command: " + command);
+                switch(command){
+                    case ObdCommands.rpm_resp:
+                        if (value.length() == 4) {
+                            Snapshot.rpm = Integer.parseInt(value, 16) / 4;
+                            //Log.d(TAG, "RPM: "+Integer.toString(rpm));
+                        }
+                        break;
+                    case ObdCommands.speed_resp:
+                        if (value.length() == 2) {
+                            int speed = Integer.parseInt(value, 16);
+                            Snapshot.speed = (float)speed;
+                            //Log.d(TAG, "Speed: "+Float.toString(Data.speed));
+                        }
+                        break;
+                    case ObdCommands.maf_resp:
+                        if (value.length() == 4) {
+                            Snapshot.maf = (float)(Integer.parseInt(value, 16)) / 100;
+                            //Log.d(TAG, "MAF: "+Float.toString(Data.maf));
+                        }
+                        break;
+                    case ObdCommands.engine_temp_resp:
+                        if (value.length() == 2) {
+                            Snapshot.engine_temp = (float)(Integer.parseInt(value,16) - 40);
+                            //Log.d(TAG, "Engine Temp: "+Float.toString(Data.engine_temp));
+                        }
+                }
+            }
+        }
+    }
+
+    class ObdCommands {
+        public static final String speed = "010D";
+        public static final String rpm = "010C";
+        public static final String engine_temp = "0105";
+        public static final String maf = "0110";
+
+        public static final String speed_resp = "410D";
+        public static final String rpm_resp = "410C";
+        public static final String engine_temp_resp = "4105";
+        public static final String maf_resp = "4110";
+    }
+
 }
