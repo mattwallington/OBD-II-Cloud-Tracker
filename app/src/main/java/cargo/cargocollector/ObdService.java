@@ -10,32 +10,44 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
+import java.nio.charset.Charset;
 import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
 
 /**
- * Created by mattwallington on 3/5/15.
+ * Service to pull and appropriately route data to and from the car.
  */
 public class ObdService {
 
     private static final String TAG = "OBDService";
     private static final UUID DEVICE_UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
 
-    // Member fields
-    private final BluetoothAdapter mAdapter;
-
-    private ConnectThread mConnectThread;
-    private ConnectedThread mConnectedThread;
-
-    private int mState;
-    private Context mContext;
-    private BluetoothDevice mDevice;
+    private static final int SEND_CMD_DELAY = 200;
 
     // Constants that indicate the current connection state
     public static final int STATE_NONE = 0;       // we're doing nothing
     public static final int STATE_CONNECTING = 1; // now initiating an outgoing connection
     public static final int STATE_CONNECTED = 2;  // now connected to a remote device
+
+    // Member fields
+    private final BluetoothAdapter mAdapter;
+
+    private ConnectThread mConnectThread;
+    private ConnectedThread mConnectedThread;
+    private QueueProcessorThread mQueueProcessorThread;
+
+    private int mState;
+    private Context mContext;
+    private BluetoothDevice mDevice;
+
+    private Queue<String> mCmdQueue;
+    private boolean mIsWriteBusy;    //Keep track of whether the bluetooth device is ready to accept new commands.
+
+    private boolean mStopService;   //Keep track of whether user wants service stopped.
+
 
     /**
      * Constructor.
@@ -46,6 +58,8 @@ public class ObdService {
         mAdapter = BluetoothAdapter.getDefaultAdapter();
         mState = STATE_NONE;
         mContext = context;
+        mCmdQueue = new LinkedList<String>();
+        setWriteBusy(false);
 
         //Select device.
         Set<BluetoothDevice> pairedDevices;
@@ -87,6 +101,12 @@ public class ObdService {
             mConnectedThread = null;
         }
 
+        //Cancel any QueueProcessor threads.
+        if (mQueueProcessorThread != null) {
+            mQueueProcessorThread.cancel();
+            mQueueProcessorThread = null;
+        }
+
         //Start connect thread.
         if (mConnectThread == null) {
             mConnectThread = new ConnectThread();
@@ -119,6 +139,10 @@ public class ObdService {
         mConnectedThread = new ConnectedThread(socket);
         mConnectedThread.start();
 
+        //Start another thread to manage processing the queue of commands to be sent to the device.
+        mQueueProcessorThread = new QueueProcessorThread();
+        mQueueProcessorThread.start();
+
         setState(STATE_CONNECTED);
     }
 
@@ -127,6 +151,7 @@ public class ObdService {
      */
     public synchronized void stop() {
         Log.d(TAG, "stop()");
+        mStopService = true;        //Do now allow threads to be restarted.
 
         if (mConnectThread != null) {
             mConnectThread.cancel();
@@ -136,6 +161,11 @@ public class ObdService {
         if (mConnectedThread != null) {
             mConnectedThread.cancel();
             mConnectedThread = null;
+        }
+
+        if (mQueueProcessorThread != null) {
+            mQueueProcessorThread.cancel();
+            mQueueProcessorThread = null;
         }
 
         setState(STATE_NONE);
@@ -162,7 +192,10 @@ public class ObdService {
      */
     private void connectionFailed() {
         //Start the service over to attempt to connect again.
-        ObdService.this.start();
+        if (!mStopService){
+            Log.d(TAG, "Restarting ObdService");
+            ObdService.this.start();
+        }
     }
 
     /**
@@ -187,6 +220,9 @@ public class ObdService {
         thread.start();
     }
 
+    public void setWriteBusy(boolean isWriteBusy) {
+        mIsWriteBusy = isWriteBusy;
+    }
 
     // Thread classes.
     private class ConnectThread extends Thread {
@@ -228,6 +264,7 @@ public class ObdService {
 
         public void cancel() {
             try {
+                Log.d(TAG, "Cancelling ConnectThread");
                 mmSocket.close();
             } catch (IOException e) {
                 Log.e(TAG, "close() of connect socket failed.", e);
@@ -240,7 +277,7 @@ public class ObdService {
         private final InputStream mmInStream;
         private final OutputStream mmOutStream;
 
-        private boolean mmKeepRunning;
+        private boolean mmStopThread;
 
 
         public ConnectedThread(BluetoothSocket socket) {
@@ -248,7 +285,7 @@ public class ObdService {
             mmSocket = socket;
             InputStream tmpIn = null;
             OutputStream tmpOut = null;
-            mmKeepRunning = true;
+            mmStopThread = false;
 
             //Get the input and output streams from the socket.
             try {
@@ -268,7 +305,7 @@ public class ObdService {
             int bytes;
 
             // Continue listening to the InputStream while connected.
-            while (mmKeepRunning) {
+            while (!mmStopThread) {
                 try {
                     // Read from the InputStream
                     bytes = mmInStream.read(buffer);
@@ -277,9 +314,10 @@ public class ObdService {
                     synchronized (this) {
                         processData(buffer, bytes);
                     }
+                    setWriteBusy(false);
                 } catch (IOException e) {
                     Log.e(TAG, "disconnected", e);
-                    if (mmKeepRunning)
+                    if (!mmStopThread)
                         connectionLost();
                     return;
                 }
@@ -305,7 +343,8 @@ public class ObdService {
          */
         public void cancel() {
             try {
-                mmKeepRunning = false;
+                Log.d(TAG, "Cancelling mConnectedThread");
+                mmStopThread = true;
                 mmSocket.close();
             } catch (IOException e) {
                 Log.e(TAG, "close() of connected socket failed", e);
@@ -370,6 +409,54 @@ public class ObdService {
                 }
             }
         }
+    }
+
+    private class QueueProcessorThread extends Thread {
+
+        private boolean mmStopThread;
+
+        public QueueProcessorThread() {
+            Log.d(TAG, "create QueueProcessorThread");
+            mmStopThread = false;
+        }
+
+        public void run() {
+            Log.i(TAG, "BEGIN mQueueProcessorThread");
+            String cmd;
+
+            // Continue processing the queue until manually stopped.
+            while (!mmStopThread) {
+                try {
+                    if (!mCmdQueue.isEmpty() && !mIsWriteBusy) {
+                        setWriteBusy(true);
+
+                        //Pop next command off the queue.
+                        cmd = mCmdQueue.poll();
+                        if (cmd != null) {
+                            //Send command to the bluetooth adapter.
+                            write(cmd.getBytes(Charset.forName("US-ASCII")));
+                        }
+                    }
+                    Thread.sleep(SEND_CMD_DELAY);
+                } catch (Exception e) {
+                    Log.e(TAG, "Send queued command exception.", e);
+                }
+            }
+            Log.i(TAG, "END mQueueProcessorThread");
+        }
+
+        /**
+         * Close the socket
+         */
+        public void cancel() {
+            try {
+                Log.d(TAG, "Cancelling QueueProcessorThread.");
+                mmStopThread = true;
+            } catch (Exception e) {
+                Log.e(TAG, "close() of queue processor thread failed.", e);
+            }
+        }
+
     }
 
     class ObdCommands {
