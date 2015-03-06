@@ -1,23 +1,18 @@
 package cargo.cargocollector;
 
 import android.app.IntentService;
+import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
-import android.location.*;
 import android.location.Location;
-import android.os.Binder;
 import android.os.Bundle;
-import android.os.IBinder;
+import android.support.v4.app.NotificationCompat;
 import android.util.Log;
-import android.app.Service;
+import android.widget.Toast;
 
 import com.google.android.gms.common.ConnectionResult;
-import com.google.android.gms.common.GooglePlayServicesClient;
 import com.google.android.gms.common.api.GoogleApiClient;
-import com.google.android.gms.common.api.PendingResult;
-import com.google.android.gms.common.api.ResultCallback;
-import com.google.android.gms.common.api.Status;
 import com.google.android.gms.location.FusedLocationProviderApi;
 import com.google.android.gms.location.LocationListener;
 import com.google.android.gms.location.LocationRequest;
@@ -26,40 +21,48 @@ import com.google.android.gms.location.LocationServices;
 /**
  * Created by matt on 7/8/14.
  */
-public class LocationService implements GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener  {
+public class LocationService implements GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener, LocationListener  {
 
-    private IBinder m_binder = null;
+    private static final String TAG = "LocationService";
 
     private static final int REQUEST_RESOLVE_ERROR = 1001;
     private static final int UPDATE_INTERVAL = 1000;
     private static final int FASTEST_INTERVAL = 1000;
 
-    private LocationRequest m_locationRequest;
-    private LocationListener m_locationListener;
-    private GoogleApiClient m_googleApiClient;
-    private Intent m_intent;
-    private Context m_context;
+    private LocationListener mLocationListener;
+    private GoogleApiClient mGoogleApiClient;
+    private Intent mIntent;
+    private Context mContext;
 
-    private boolean m_isRunning = false;
+    private LocationRequest mLocationRequest;
+
+    private int mCounter;
+
+    private NotificationCompat.Builder mBuilder;
+
+    private boolean mIsRunning = false;
 
     public LocationService(Context context) {
-        m_context = context;
+        mContext = context;
 
-        m_googleApiClient = new GoogleApiClient.Builder(context)
+        mGoogleApiClient = new GoogleApiClient.Builder(context)
                 .addConnectionCallbacks(this)
                 .addOnConnectionFailedListener(this)
                 .addApi(LocationServices.API)
                 .build();
 
-        m_locationRequest = LocationRequest.create()
+        mLocationRequest = LocationRequest.create()
                 .setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY)
                 .setInterval(UPDATE_INTERVAL)
                 .setFastestInterval(FASTEST_INTERVAL);
+
+        mBuilder = null;
+        mCounter = 0;
     }
 
     public void start() {
-        if (!m_googleApiClient.isConnected())
-            m_googleApiClient.connect();
+        if (!mGoogleApiClient.isConnected())
+            mGoogleApiClient.connect();
     }
 
     /* Begin ConnectionCallbacks callbacks */
@@ -67,47 +70,51 @@ public class LocationService implements GoogleApiClient.ConnectionCallbacks, Goo
 
     @Override
     public void onConnected(Bundle bundle) {
-        Log.d("Location", "Google API client connected.");
+        Log.d(TAG, "Google API client connected.");
+        FusedLocationProviderApi fusedLocationProviderApi = LocationServices.FusedLocationApi;
+        Location curLocation = fusedLocationProviderApi.getLastLocation(mGoogleApiClient);
 
-        PendingIntent pendingIntent = PendingIntent.getService(m_context, 0, new Intent(m_context, MyLocationHandler.class), PendingIntent.FLAG_UPDATE_CURRENT);
-        LocationServices.FusedLocationApi.requestLocationUpdates(m_googleApiClient,m_locationRequest, pendingIntent);
+        String loc = "1Lat: " + curLocation.getLatitude() + " Lng: " + curLocation.getLongitude() + " Timestamp: " + curLocation.getTime();
+        notification(loc);
+
+        fusedLocationProviderApi.requestLocationUpdates(mGoogleApiClient, mLocationRequest, this);
     }
 
     @Override
     public void onConnectionSuspended(int i) {
-        Log.d("Location", "Google API client suspended.");
+        Log.d(TAG, "Google API client suspended.");
     }
 
     /* Begin Connection Failed Listener */
     //********************************************************
     @Override
     public void onConnectionFailed(ConnectionResult connectionResult) {
-        Log.d("Location", "Google API client connection failed.");
+        Log.d(TAG, "Google API client connection failed.");
     }
 
     public void cancel() {
-        Log.d("Location", "Cancelling location service.");
-        if(m_googleApiClient.isConnected())
-            m_googleApiClient.disconnect();
+        Log.d(TAG, "Cancelling location service.");
+        if(mGoogleApiClient.isConnected())
+            mGoogleApiClient.disconnect();
     }
 
+    public void notification(String location) {
+        mCounter++;
+        Log.d(TAG, location);
+        Toast.makeText(mContext, location, Toast.LENGTH_SHORT).show();
 
-}
-
-class MyLocationHandler extends IntentService {
-
-    /**
-     * Creates an IntentService.  Invoked by your subclass's constructor.
-     *
-     * @param name Used to name the worker thread, important only for debugging.
-     */
-    public MyLocationHandler(String name) {
-        super(name);
+        mBuilder = new NotificationCompat.Builder(mContext);
+        mBuilder.setSmallIcon(R.drawable.stone);
+        mBuilder.setContentTitle("Cargo");
+        mBuilder.setContentText(location);
+        NotificationManager notificationManager = (NotificationManager) mContext.getSystemService(mContext.NOTIFICATION_SERVICE);
+        notificationManager.notify(TAG, mCounter, mBuilder.build());
     }
 
     @Override
-    protected void onHandleIntent(Intent intent) {
-        final android.location.Location location = intent.getParcelableExtra(FusedLocationProviderApi.KEY_LOCATION_CHANGED);
-        Log.d("Location", "Lat: " + Double.toString(location.getLatitude()) + " Lng: " + Double.toString(location.getLongitude()) + " Timestamp: " + Long.toString(location.getTime()));
+    public void onLocationChanged(Location location) {
+        String loc = "Lat: " + location.getLatitude() + " Lng: " + location.getLongitude() + " Timestamp: " + location.getTime();
+        notification(loc);
     }
 }
+
