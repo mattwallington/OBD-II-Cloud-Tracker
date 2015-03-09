@@ -215,6 +215,7 @@ public class ObdService {
         for(String cmd: commands) {
             try {
                 mCmdQueue.offer(cmd + "\r", 10000, TimeUnit.MILLISECONDS);
+                Log.v(TAG, "CmdQueue Length: "+mCmdQueue.size());
             } catch (InterruptedException e) {
                 Log.e(TAG, "Command put interrupted.", e);
             }
@@ -477,7 +478,7 @@ public class ObdService {
 
 
     /**
-     *
+     *  Process commands that need to be sent to the device.
      */
     private class QueueProcessor extends Thread {
 
