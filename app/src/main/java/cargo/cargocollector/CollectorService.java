@@ -3,22 +3,23 @@ package cargo.cargocollector;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
-import android.location.LocationManager;
 import android.os.Binder;
 import android.os.IBinder;
 import android.util.Log;
 
 public class CollectorService extends Service {
-    private final IBinder m_binder = new CollectorBinder();
+    private static String TAG;
+    private final IBinder mBinder = new CollectorBinder();
 
-    private LocationService m_locationService = null;
-    private SensorService m_sensorService = null;
+    private LocationService mLocationService;
+    private SensorService mSensorService;
+    private ObdService mObdService;
+    private DataAggregator mDataAggregator;
+    private ZmqClient mZmqClient;
 
-    private ObdService m_obdService = null;
+    private Context mContext;
 
-    private Context m_context = null;
-
-    private boolean m_isRunning = false;
+    private boolean mIsRunning;
 
     public class CollectorBinder extends Binder {
         CollectorService getService() {
@@ -26,15 +27,25 @@ public class CollectorService extends Service {
         }
     }
 
+    public CollectorService() {
+        TAG = this.getClass().getSimpleName();
+        mLocationService = null;
+        mSensorService = null;
+        mObdService = null;
+        mDataAggregator = null;
+        mContext = null;
+        mZmqClient = null;
+    }
+
     @Override
     public IBinder onBind(Intent intent) {
-        return m_binder;
+        return mBinder;
     }
 
     @Override
     public void onCreate() {
-        Log.d("CollectorService", "CollectorService created.");
-        m_context = this;
+        Log.d(TAG, "CollectorService created.");
+        mContext = this;
     }
 
     /*
@@ -42,77 +53,96 @@ public class CollectorService extends Service {
      */
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        Log.d("CollectorService", "Starting CollectorService with start ID: " + startId + ": " + intent);
-        m_isRunning = true;
-/*
-        String json = "{\"timestamp\":1424765173,\"location\":{\"timestamp\":1424765173,\"lat\":34.4300034,\"lng\":2392030909239},\"engine_temp\":202.1,\"speed\":23.5,\"running\":1,\"mpg\":25}";
-        ZmqClient.connect(json);
-        //ZmqClient.send(json);
-*/
+        Log.d(TAG, "Starting CollectorService with start ID: " + startId + ": " + intent);
+        mIsRunning = true;
+
         // Activate location tracking service.
-        m_locationService = new LocationService(this);
-        m_locationService.start();
+        mLocationService = new LocationService(mContext);
+        mLocationService.start();
 
         //Activate Accelerometer service
-        //m_sensorService = new SensorService((SensorManager)getSystemService(SENSOR_SERVICE));
+        //mSensorService = new SensorService((SensorManager)getSystemService(SENSOR_SERVICE));
 
         //Activate OBD service
-        m_obdService = new ObdService(m_context);
-        m_obdService.start();
+        mObdService = new ObdService(mContext);
+        mObdService.start();
 
+        // ZMQ Library.
+        mZmqClient = new ZmqClient();
+        mZmqClient.start();
 
         //Start data aggregator.
-        DataAggregator.start();
-
+        mDataAggregator = new DataAggregator(mZmqClient);
+        mDataAggregator.start();
 
         //Continue running until we stop the service.
-        return START_STICKY;
+        return START_NOT_STICKY;
     }
 
     @Override
     public void onDestroy() {
         //Destroyed service.
-        Log.d("Service", "OnDestroy()");
+        Log.d(TAG, "OnDestroy()");
 
-        //Destroy ZMQ Service
-        //ZmqClient.cancel();
 
         //Destroy location service.
         try {
-            m_locationService.cancel();
+            if (mLocationService != null) {
+                mLocationService.cancel();
+                mLocationService = null;
+            }
         } catch (Exception e) {
-            Log.d("Location", "Exception: onDestroy(): " + e.getMessage());
+            Log.e("Location", "Exception: onDestroy(): ", e);
         }
 
         //Destroy sensor service.
         try {
-            m_sensorService.cancel();
+            if (mSensorService != null) {
+                mSensorService.cancel();
+                mSensorService = null;
+            }
         } catch (Exception e) {
-            Log.d("Sensor", "Exception: onDestroy(): " + e.getMessage());
+            Log.e("Sensor", "Exception: onDestroy(): ", e);
         }
 
         //Destroy OBD exceptions.
         try {
-            m_obdService.stop();
+            if (mObdService != null){
+                mObdService.cancel();
+                mObdService = null;
+            }
         } catch (Exception e) {
-            Log.d("OBD", "Exception: onDestroy(): " + e.getMessage());
+            Log.e("OBD", "Exception: onDestroy(): ", e);
         }
 
         //Destroy DataAggregator.
         try {
-            DataAggregator.cancel();
+            if (mDataAggregator != null) {
+                mDataAggregator.cancel();
+                mDataAggregator = null;
+            }
         } catch (Exception e) {
-            Log.d("DataAgg", "Exception: onDestroy(): " + e.getMessage());
+            Log.e("DataAgg", "Exception: onDestroy(): ", e);
+        }
+
+        //Destroy ZMQ Client.
+        try {
+            if (mZmqClient != null) {
+                mZmqClient.cancel();
+                mZmqClient = null;
+            }
+        } catch (Exception e) {
+            Log.e("ZMQClient", "Exception cancelling ZMQ service.", e);
         }
 
         //Set service status
-        m_isRunning = false;
-        Log.d("Service", "Destroying Collector Service");
+        mIsRunning = false;
+        Log.d(TAG, "Destroying Collector Service");
 
         super.onDestroy();
     }
 
     public boolean isRunning() {
-        return m_isRunning;
+        return mIsRunning;
     }
 }
