@@ -51,7 +51,7 @@ public class BluetoothReceiver extends BroadcastReceiver {
         Toast.makeText(m_context, msg, Toast.LENGTH_SHORT).show();
 
         m_builder = new NotificationCompat.Builder(m_context);
-        m_builder.setSmallIcon(R.drawable.common_signin_btn_icon_dark);
+        m_builder.setSmallIcon(R.drawable.stone);
         m_builder.setContentTitle("Cargo");
         m_builder.setContentText(msg);
         NotificationManager notificationManager = (NotificationManager) m_context.getSystemService(m_context.NOTIFICATION_SERVICE);
