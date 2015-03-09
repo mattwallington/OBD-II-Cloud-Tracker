@@ -74,8 +74,8 @@ public class LocationService implements GoogleApiClient.ConnectionCallbacks, Goo
         FusedLocationProviderApi fusedLocationProviderApi = LocationServices.FusedLocationApi;
         Location curLocation = fusedLocationProviderApi.getLastLocation(mGoogleApiClient);
 
-        String loc = "1Lat: " + curLocation.getLatitude() + " Lng: " + curLocation.getLongitude() + " Timestamp: " + curLocation.getTime();
-        notification(loc);
+        //String loc = "1Lat: " + curLocation.getLatitude() + " Lng: " + curLocation.getLongitude() + " Timestamp: " + curLocation.getTime();
+        //notification(loc);
 
         fusedLocationProviderApi.requestLocationUpdates(mGoogleApiClient, mLocationRequest, this);
     }
@@ -102,19 +102,13 @@ public class LocationService implements GoogleApiClient.ConnectionCallbacks, Goo
         mCounter++;
         Log.d(TAG, location);
         Toast.makeText(mContext, location, Toast.LENGTH_SHORT).show();
-
-        mBuilder = new NotificationCompat.Builder(mContext);
-        mBuilder.setSmallIcon(R.drawable.stone);
-        mBuilder.setContentTitle("Cargo");
-        mBuilder.setContentText(location);
-        NotificationManager notificationManager = (NotificationManager) mContext.getSystemService(mContext.NOTIFICATION_SERVICE);
-        notificationManager.notify(TAG, mCounter, mBuilder.build());
     }
 
     @Override
     public void onLocationChanged(Location location) {
         String loc = "Lat: " + location.getLatitude() + " Lng: " + location.getLongitude() + " Timestamp: " + location.getTime();
-        notification(loc);
+        //notification(loc);
+        Snapshot.location = location;
     }
 }
 
