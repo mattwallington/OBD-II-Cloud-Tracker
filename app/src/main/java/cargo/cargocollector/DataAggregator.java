@@ -2,10 +2,15 @@ package cargo.cargocollector;
 
 import android.util.Log;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonRootName;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 
+import java.io.ByteArrayOutputStream;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.zip.Deflater;
 
 //Timestamp = System.currentTimeMillis()/1000
 
@@ -14,26 +19,37 @@ import java.util.TimerTask;
  */
 public class DataAggregator {
     //Static Variables.
-    private static Timer s_timer;
-    private static TimerTask s_timerTask;
+    private Timer mTimer;
+    private TimerTask mTimerTask;
 
-    private static ObjectMapper mapper = new ObjectMapper();
+    private ObjectMapper mMapper;
 
     //Constants
-    private static final int TIMER_PERIOD = 5000;
+    private static final int TIMER_PERIOD = 1000;
+    private static String TAG;
+
+    private ZmqClient mZmqClient;
+
+    public DataAggregator(ZmqClient zmqClient) {
+        TAG = this.getClass().getSimpleName();
+        mTimer = null;
+        mTimerTask = null;
+        mMapper = new ObjectMapper();
+        mZmqClient = zmqClient;
+    }
 
     /*
      * Start the timer.
      */
-    public static void start() {
-        s_timer = new Timer();
+    public void start() {
+        mTimer = new Timer();
 
         initTimerTask();
 
-        s_timer.schedule(s_timerTask, 0, TIMER_PERIOD);
+        mTimer.schedule(mTimerTask, 0, TIMER_PERIOD);
     }
 
-    public static void cancel() {
+    public void cancel() {
         Log.d("DataAgg", "Stopping Data Aggregator service.");
         stop();
     }
@@ -41,49 +57,89 @@ public class DataAggregator {
     /*
      * Stop the timer.
      */
-    public static void stop() {
-        if (s_timer != null) {
-            s_timer.cancel();
-            s_timer = null;
+    public void stop() {
+        if (mTimer != null) {
+            mTimer.cancel();
+            mTimer = null;
         }
     }
 
-    private static void initTimerTask() {
-        s_timerTask = new TimerTask() {
+    private void initTimerTask() {
+        mTimerTask = new TimerTask() {
             public void run() {         //This will pop every TIMER_PERIOD
 
                 //Copy data to local instance.
-                DataObj data = new DataObj();
-                Log.d("Aggregator", "DataObj: " + data.toString());
+                Payload payload = new Payload();
 
+                if (!payload.isData())
+                    return;
+
+                Wrapper wrapper = new Wrapper(payload);
+
+                String jsonData = null;
                 //Generate JSON (Add timestamp)
                 try {
-                    String jsonData = mapper.writeValueAsString(data);
+                    jsonData = mMapper.writeValueAsString(wrapper);
                     Log.d("JSON", jsonData);
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
 
-                //ZIP JSON
+                byte[] byteJson = null;
+                try {
+                    byteJson = jsonData.getBytes();
+                } catch (Exception e) {
+                    Log.d(TAG, "jsonData.getBytes()");
+                }
+                byte[] byteJsonCompressed = null;
 
-                //Send JSON to server.
 
+                if (byteJson != null) {
+                    //ZIP JSON
+                    byteJsonCompressed = compress(byteJson);
+
+                    //Send JSON to server.
+                    Log.d(TAG, "Sending: " + jsonData);
+                    mZmqClient.send(byteJsonCompressed);
+                }
             }
         };
 
     }
+
+    private byte[] compress(byte[] data) {
+
+        Deflater deflater = new Deflater();
+        deflater.setInput(data);
+        deflater.finish();
+
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        byte[] buf = new byte[8192];
+        while (!deflater.finished()) {
+            int byteCount = deflater.deflate(buf);
+            baos.write(buf, 0, byteCount);
+        }
+        deflater.end();
+
+        return baos.toByteArray();
+    }
 }
 
-class DataObj {       //Copy of data while processing.
+@JsonRootName(value="payload")
+@JsonSerialize(include= JsonSerialize.Inclusion.NON_NULL)
+class Payload {       //Copy of data while processing.
     public Location location = null;
     public Float speed = null;
     public Float engine_temp = null;
     public Float mpg = null;
+    public String id = "live";
+    public Long timestamp = null;
 
-    public DataObj() {
+    public Payload() {
 
-        if (Snapshot.location != null)
-            location = getLocation();
+        if (Snapshot.location != null) {
+            location = new Location();
+        }
 
         if (Snapshot.speed != null)
             speed = convertToMiles(Snapshot.speed);     //convert to MPH
@@ -94,15 +150,10 @@ class DataObj {       //Copy of data while processing.
         if (Snapshot.maf != null && Snapshot.speed != null)
             mpg = getMpg(Snapshot.maf, Snapshot.speed);
 
-        clearData();
-    }
+        //Get timestamp.
+        timestamp = System.currentTimeMillis()/1000;
 
-    private Location getLocation(){
-        Location loc = new Location();
-        loc.timestamp = Snapshot.location.getTime();
-        loc.lat = Snapshot.location.getLatitude();
-        loc.lng = Snapshot.location.getLongitude();
-        return loc;
+        clearData();
     }
 
     private float getMpg(float maf, float speed){
@@ -119,10 +170,14 @@ class DataObj {       //Copy of data while processing.
     }
 
     private void clearData() {
-        Snapshot.location = null;
         Snapshot.speed = null;
         Snapshot.engine_temp = null;
         Snapshot.maf = null;
+    }
+
+    @JsonIgnore
+    public boolean isData() {
+        return (this.location != null || this.speed != null || this.engine_temp != null || this.mpg != null);
     }
 
     @Override
@@ -145,10 +200,25 @@ class DataObj {       //Copy of data while processing.
 
 }
 
+@JsonSerialize(include= JsonSerialize.Inclusion.NON_NULL)
+@JsonRootName(value="location")
 class Location {
-    Long timestamp = null;
-    Double lat = null;
-    Double lng = null;
+    public Long timestamp = null;
+    public Double lat = null;
+    public Double lng = null;
+
+    public Location() {
+        if (Snapshot.location != null) {
+            timestamp = Snapshot.location.getTime()/1000;
+            lat = Snapshot.location.getLatitude();
+            lng = Snapshot.location.getLongitude();
+        }
+        clearData();
+    }
+
+    private void clearData() {
+        Snapshot.location = null;
+    }
 
     @Override
     public String toString() {
@@ -164,5 +234,15 @@ class Location {
             result.append(" Lng: " + Double.toString(lng) + NEW_LINE);
         result.append("}");
         return result.toString();
+    }
+}
+
+@JsonSerialize(include= JsonSerialize.Inclusion.NON_NULL)
+class Wrapper {
+    public String command = "store";
+    public Payload payload = null;
+
+    public Wrapper(Payload payload) {
+        this.payload = payload;
     }
 }
