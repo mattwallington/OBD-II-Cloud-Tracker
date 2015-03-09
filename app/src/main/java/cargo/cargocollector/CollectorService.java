@@ -68,7 +68,7 @@ public class CollectorService extends Service {
         mObdService.start();
 
         // ZMQ Library.
-        mZmqClient = new ZmqClient();
+        mZmqClient = new ZmqClient(mContext);
         mZmqClient.start();
 
         //Start data aggregator.
