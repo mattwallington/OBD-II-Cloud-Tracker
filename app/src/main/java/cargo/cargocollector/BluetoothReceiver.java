@@ -13,14 +13,14 @@ import android.widget.Toast;
  */
 public class BluetoothReceiver extends BroadcastReceiver {
 
-    private Context m_context = null;
-    private NotificationCompat.Builder m_builder = null;
-    private int counter = 0;
+    private Context mContext = null;
+    private NotificationCompat.Builder mBuilder = null;
+    private int mCounter = 0;
 
 
     @Override
     public void onReceive(Context context, Intent intent) {
-        m_context = context;
+        mContext = context;
 
         switch(intent.getAction()) {
             case BluetoothDevice.ACTION_FOUND:
@@ -47,15 +47,15 @@ public class BluetoothReceiver extends BroadcastReceiver {
     }
 
     private void notify(String msg) {
-        counter++;
-        Toast.makeText(m_context, msg, Toast.LENGTH_SHORT).show();
+        mCounter++;
+        Toast.makeText(mContext, msg, Toast.LENGTH_SHORT).show();
 
-        m_builder = new NotificationCompat.Builder(m_context);
-        m_builder.setSmallIcon(R.drawable.stone);
-        m_builder.setContentTitle("Cargo");
-        m_builder.setContentText(msg);
-        NotificationManager notificationManager = (NotificationManager) m_context.getSystemService(m_context.NOTIFICATION_SERVICE);
-        notificationManager.notify(counter, m_builder.build());
+        mBuilder = new NotificationCompat.Builder(mContext);
+        mBuilder.setSmallIcon(R.drawable.stone);
+        mBuilder.setContentTitle("Cargo");
+        mBuilder.setContentText(msg);
+        NotificationManager notificationManager = (NotificationManager) mContext.getSystemService(mContext.NOTIFICATION_SERVICE);
+        notificationManager.notify(mCounter, mBuilder.build());
 
     }
 }
