@@ -13,15 +13,15 @@ import org.json.JSONObject;
  * Read data from accelerometer.
  */
 public class SensorService implements SensorEventListener {
-    private SensorManager m_sensorManager = null;
-    private Sensor m_accelerometer = null;
-    private float m_accelX, m_accelY, m_accelZ;
+    private SensorManager mSensorManager = null;
+    private Sensor mAccelerometer = null;
+    private float mAccelX, mAccelY, mAccelZ;
 
     /*
      * Constructor.  Start accelerometer service.
      */
     public SensorService(SensorManager sensorManager) {
-        this.m_sensorManager = sensorManager;
+        this.mSensorManager = sensorManager;
         activateAccelerometer();
 
     }
@@ -30,8 +30,8 @@ public class SensorService implements SensorEventListener {
      *   Accelerometer services
      */
     private void activateAccelerometer() {
-        m_accelerometer = m_sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
-        m_sensorManager.registerListener(this, m_accelerometer, SensorManager.SENSOR_DELAY_NORMAL);
+        mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+        mSensorManager.registerListener(this, mAccelerometer, SensorManager.SENSOR_DELAY_NORMAL);
     }
 
     /*
@@ -40,16 +40,16 @@ public class SensorService implements SensorEventListener {
     public void onSensorChanged(SensorEvent event) {
         if (event.sensor.getType() != Sensor.TYPE_ACCELEROMETER)
             return;
-        m_accelX = event.values[0];
-        m_accelY = event.values[1];
-        m_accelZ = event.values[2];
+        mAccelX = event.values[0];
+        mAccelY = event.values[1];
+        mAccelZ = event.values[2];
 
         JSONObject obj = new JSONObject();
 
         try {
-            obj.put("ACCEL_X", m_accelX);
-            obj.put("ACCEL_Y", m_accelY);
-            obj.put("ACCEL_Z", m_accelZ);
+            obj.put("ACCEL_X", mAccelX);
+            obj.put("ACCEL_Y", mAccelY);
+            obj.put("ACCEL_Z", mAccelZ);
         } catch (Exception e) {
             Log.d("Sensor", "Exception: " + e.getMessage());
         }
@@ -66,7 +66,7 @@ public class SensorService implements SensorEventListener {
      */
     public void cancel() {
         Log.d("Sensor", "Stopping sensor listener.");
-        m_sensorManager.unregisterListener(this);
+        mSensorManager.unregisterListener(this);
     }
 
 }
