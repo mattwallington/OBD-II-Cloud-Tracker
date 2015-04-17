@@ -10,6 +10,7 @@ Data points are gathered from the car and various sensors on the mobile phone on
 - Vehicle Speed (MPH)
 - Engine Temperature (&deg;F)
 - Fuel Efficiency (MPG)
+- Accelerometer
 - RPM
 
 ###Sample JSON
